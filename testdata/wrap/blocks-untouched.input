@@ -1,0 +1,18 @@
+# Heading stays intact even when it is long enough to exceed the wrap width here
+
+This introductory paragraph is deliberately long so that it must be reflowed by the wrapper into multiple lines that each fit within the configured width.
+
+- a bullet item that is long enough to exceed the width yet must remain on one line
+- second bullet
+
+> a block quote that runs long but is left exactly as written by the wrapper here
+
+| Name | A column header that is intentionally long enough to exceed the width |
+| --- | --- |
+| Bob | data |
+
+```
+this fenced code line is long enough to exceed the width but must be left alone
+```
+
+Closing paragraph, short.

@@ -117,54 +117,91 @@ written; only the one below it is formatted.
 - when calculating, we need to consider one space around any text or separators
 - tool needs to be written in both Rust and Golang
 
+## Wrap markdown prose
+
+Reflows prose paragraphs so they fit within a display width (default 80 columns,
+`-n N` to override), making raw markdown comfortable to read and review. Wrapping
+is greedy and never splits a word, so long tokens such as URLs keep their own
+line.
+
+### Behaviour
+
+- **Prose only:** ordinary paragraph text is reflowed; fenced code blocks,
+  indented code, tables, ATX and setext headings, lists, blockquotes, thematic
+  breaks, HTML blocks, and YAML front matter pass through untouched.
+- **Width = display width:** measured in terminal columns (CJK counts as 2), the
+  same metric the aligner uses.
+- **Paragraph boundaries, line endings (LF vs CRLF), and trailing-newline state
+  are preserved.** Wrapping already-wrapped prose is idempotent.
+- **Reporting & scope:** like the aligner, directory inputs are processed
+  recursively for `*.md` only, files are rewritten only when content changes, and
+  each changed path is printed one per line.
+
+Known limitations: prose is normalized to column 0 and trailing whitespace is
+trimmed; two-space "hard breaks" inside a paragraph are not preserved.
+
+```
+$ bin/go-wrap README.md
+README.md
+
+$ bin/rust-wrap -n 100 docs/
+docs/guide.md
+```
+
 ## CLI
 
-Build both binaries with `make` (output lands in `bin/`):
+Build the binaries with `make` (output lands in `bin/`):
 
 ```
-make            # build bin/go-align and bin/rust-align
-make go-align   # build only the Go binary
-make rust-align # build only the Rust binary
+make            # build all four binaries
+make go-align   # aligner (Go)        make rust-align # aligner (Rust)
+make go-wrap    # wrapper (Go)        make rust-wrap  # wrapper (Rust)
 ```
 
-Each binary shares the same interface:
+There are two tools — `*-align` (table aligner) and `*-wrap` (prose wrapper) —
+each in a Go and a Rust build. They share the same interface:
 
-- **No arguments** — read markdown from stdin, write the formatted result to
-  stdout.
-- **One or more paths** — format each in place. A directory is walked
+- **No arguments** — read markdown from stdin, write the result to stdout.
+- **One or more paths** — process each in place. A directory is walked
   recursively for `*.md` files; a file is rewritten only if its content changes.
   The full path of every file that changed is printed to stdout, one per line.
+- The wrapper additionally accepts `-n N` to set the wrap width (default 80).
 
 ```
 $ bin/go-align docs/
 docs/guide.md
 docs/api/reference.md
 
-$ cat table.md | bin/rust-align     # stdin → stdout, nothing else printed
+$ cat table.md | bin/rust-align        # stdin → stdout, nothing else printed
+
+$ bin/go-wrap -n 100 docs/             # wrap prose to 100 columns in place
+docs/guide.md
 ```
 
 ## Project layout
 
 ```
-/rust       Rust implementation (lib crate `markdown_tools` + bin `rust-align`)
-/go         Go implementation (package `mdtable` + cmd `go-align`, Go 1.22+)
-/testdata   Shared fixtures: `name.input` / `name.output` pairs run by both
-/Makefile   Builds both CLIs into /bin
+/rust       Rust crate `markdown_tools` (bins `rust-align`, `rust-wrap`)
+/go         Go package `mdtable` (cmds `go-align`, `go-wrap`, Go 1.22+)
+/testdata       Shared aligner fixtures: `name.input` / `name.output`
+/testdata/wrap  Shared wrapper fixtures (run at width 80)
+/Makefile   Builds all four CLIs into /bin
 ```
 
 Both implementations are verified against the same `*.input` / `*.output`
 fixtures so their output is provably identical. Each test reads an `.input`
-file, formats it, and asserts the result equals the matching `.output` file
+file, processes it, and asserts the result equals the matching `.output` file
 byte-for-byte.
 
 ### Public API
 
-Each language exposes the same two entry points:
+Each language exposes the same entry points for both tools:
 
-- `format_str` — pure, in-memory string → string; the primary unit-test target.
-- `format_directory` — recursively finds `*.md` under a path and rewrites each
-  in place, returning the paths of the files it changed (Go: `[]string`; Rust:
-  `Vec<PathBuf>`) so callers can report them.
+- `format_str` / `wrap_str` — pure, in-memory string → string; the primary
+  unit-test targets (`wrap_str` also takes a width).
+- `format_directory` / `wrap_directory` — recursively find `*.md` under a path
+  and rewrite each in place, returning the paths of the files they changed (Go:
+  `[]string`; Rust: `Vec<PathBuf>`) so callers can report them.
 
 ### Dependencies
 

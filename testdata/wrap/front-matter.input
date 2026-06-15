@@ -1,0 +1,6 @@
+---
+title: A very long front matter value that should never be wrapped by the wrapper
+tags: [one, two]
+---
+
+The body paragraph after the front matter is long enough that it should wrap onto more than a single line when processed at the default eighty column width.

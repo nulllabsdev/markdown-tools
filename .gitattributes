@@ -1,2 +1,4 @@
 testdata/*.input -text
 testdata/*.output -text
+testdata/wrap/*.input -text
+testdata/wrap/*.output -text
