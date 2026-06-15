@@ -88,6 +88,20 @@ fn backtick_fence_info_string_rejects_backtick() {
 }
 
 #[test]
+fn fence_indentation() {
+    // Four-space indentation is indented-code content, not a fence, so the line
+    // does not open a fence and the table after it is formatted.
+    let deep = "    ```\n| a | b |\n|-|-|\n| 1 | 2 |\n";
+    let want_deep = "    ```\n| a   | b   |\n| --- | --- |\n| 1   | 2   |\n";
+    assert_eq!(format_str(deep), want_deep);
+
+    // Up to three spaces still opens (and closes) a fence, so the table between
+    // the markers is left untouched.
+    let shallow = "   ```\n| a | b |\n|-|-|\n   ```\n";
+    assert_eq!(format_str(shallow), shallow);
+}
+
+#[test]
 fn format_directory_accepts_markdown_file_root() {
     let dir = std::env::temp_dir().join(format!(
         "mdtools-rust-file-root-test-{}",

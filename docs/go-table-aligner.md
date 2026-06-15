@@ -67,8 +67,9 @@ case.
 detected from a leading run of at least three backticks or tildes and may include
 an info string (a backtick fence's info string may not contain a backtick);
 closing fences must use the same marker, be at least as long as the opener, and
-contain only marker characters after trimming. Lines inside a fence pass through
-verbatim. Outside a fence, a table starts where line *i* is a
+contain only marker characters after trimming. Fences indented four or more
+columns are treated as indented-code content and ignored. Lines inside a fence
+pass through verbatim. Outside a fence, a table starts where line *i* is a
 pipe row and line *i+1* is a valid separator row (every cell matches
 `^:?-+:?$`). The header, separator, and consecutive body pipe rows are collected,
 formatted, and emitted; everything else passes through unchanged.

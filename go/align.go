@@ -53,19 +53,22 @@ func FormatString(s string) string {
 	for i := 0; i < len(lines); {
 		trimmed := strings.TrimSpace(lines[i].text)
 
-		// Code-fence boundaries pass through and toggle fence state.
-		if !inFence {
-			if marker, n, ok := openingFenceToken(trimmed); ok {
-				inFence, fenceMarker, fenceLen = true, marker, n
+		// Code-fence boundaries pass through and toggle fence state. A line
+		// indented four or more columns is indented-code content, not a fence.
+		if !indentedTooFar(lines[i].text) {
+			if !inFence {
+				if marker, n, ok := openingFenceToken(trimmed); ok {
+					inFence, fenceMarker, fenceLen = true, marker, n
+					out = append(out, lines[i])
+					i++
+					continue
+				}
+			} else if isClosingFence(trimmed, fenceMarker, fenceLen) {
+				inFence = false
 				out = append(out, lines[i])
 				i++
 				continue
 			}
-		} else if isClosingFence(trimmed, fenceMarker, fenceLen) {
-			inFence = false
-			out = append(out, lines[i])
-			i++
-			continue
 		}
 		if inFence {
 			out = append(out, lines[i])
@@ -164,6 +167,17 @@ func FormatDirectory(root string) ([]string, error) {
 		return nil
 	})
 	return changed, err
+}
+
+// indentedTooFar reports whether a line is indented four or more columns, which
+// under CommonMark makes it indented-code content rather than a code fence. A
+// leading tab counts as a full indent on its own.
+func indentedTooFar(line string) bool {
+	spaces := 0
+	for spaces < len(line) && line[spaces] == ' ' {
+		spaces++
+	}
+	return spaces >= 4 || (spaces < len(line) && line[spaces] == '\t')
 }
 
 // openingFenceToken reports whether a trimmed line opens a fenced code block,

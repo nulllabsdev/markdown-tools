@@ -91,6 +91,23 @@ func TestBacktickFenceInfoStringRejectsBacktick(t *testing.T) {
 	}
 }
 
+func TestFenceIndentation(t *testing.T) {
+	// Four-space indentation is indented-code content, not a fence, so the line
+	// does not open a fence and the table after it is formatted.
+	deep := "    ```\n| a | b |\n|-|-|\n| 1 | 2 |\n"
+	wantDeep := "    ```\n| a   | b   |\n| --- | --- |\n| 1   | 2   |\n"
+	if got := FormatString(deep); got != wantDeep {
+		t.Errorf("4-space indented fence not ignored\n--- got ---\n%q\n--- want ---\n%q", got, wantDeep)
+	}
+
+	// Up to three spaces still opens (and closes) a fence, so the table between
+	// the markers is left untouched.
+	shallow := "   ```\n| a | b |\n|-|-|\n   ```\n"
+	if got := FormatString(shallow); got != shallow {
+		t.Errorf("3-space indented fence not honored\n--- got ---\n%q\n--- want ---\n%q", got, shallow)
+	}
+}
+
 // TestFormatDirectory verifies recursive in-place formatting of *.md files,
 // leaving non-markdown files untouched.
 func TestFormatDirectory(t *testing.T) {

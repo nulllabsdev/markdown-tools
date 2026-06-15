@@ -52,21 +52,24 @@ pub fn format_str(input: &str) -> String {
     while i < lines.len() {
         let trimmed = lines[i].text.trim();
 
-        // Code-fence boundaries pass through and toggle fence state.
-        if !in_fence {
-            if let Some((marker, n)) = opening_fence_token(trimmed) {
-                in_fence = true;
-                fence_marker = marker;
-                fence_len = n;
+        // Code-fence boundaries pass through and toggle fence state. A line
+        // indented four or more columns is indented-code content, not a fence.
+        if !indented_too_far(lines[i].text) {
+            if !in_fence {
+                if let Some((marker, n)) = opening_fence_token(trimmed) {
+                    in_fence = true;
+                    fence_marker = marker;
+                    fence_len = n;
+                    out.push((lines[i].text.to_string(), lines[i].eol));
+                    i += 1;
+                    continue;
+                }
+            } else if is_closing_fence(trimmed, fence_marker, fence_len) {
+                in_fence = false;
                 out.push((lines[i].text.to_string(), lines[i].eol));
                 i += 1;
                 continue;
             }
-        } else if is_closing_fence(trimmed, fence_marker, fence_len) {
-            in_fence = false;
-            out.push((lines[i].text.to_string(), lines[i].eol));
-            i += 1;
-            continue;
         }
         if in_fence {
             out.push((lines[i].text.to_string(), lines[i].eol));
@@ -190,6 +193,15 @@ fn is_markdown(path: &Path) -> bool {
     path.extension()
         .map(|ext| ext.eq_ignore_ascii_case("md"))
         .unwrap_or(false)
+}
+
+/// Reports whether a line is indented four or more columns, which under
+/// CommonMark makes it indented-code content rather than a code fence. A leading
+/// tab counts as a full indent on its own.
+fn indented_too_far(line: &str) -> bool {
+    let bytes = line.as_bytes();
+    let spaces = bytes.iter().take_while(|&&b| b == b' ').count();
+    spaces >= 4 || bytes.get(spaces) == Some(&b'\t')
 }
 
 /// Reports whether a trimmed line opens a fenced code block, returning the

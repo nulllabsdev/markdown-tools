@@ -70,8 +70,9 @@ line endings and trailing-newline state are preserved exactly.
 `opening_fence_token` detects a leading run of at least three backticks or tildes
 and allows an info string (a backtick fence's info string may not contain a
 backtick); `is_closing_fence` requires the same marker, at least the opener's
-length, and only marker characters after trimming. Inside a fence, lines pass
-through verbatim. Outside a fence, a table starts where line *i* is a
+length, and only marker characters after trimming. Fences indented four or more
+columns are treated as indented-code content and ignored. Inside a fence, lines
+pass through verbatim. Outside a fence, a table starts where line *i* is a
 pipe row and line *i+1* is a valid separator row; the header, separator, and
 following pipe rows are collected, formatted, and emitted.
 
