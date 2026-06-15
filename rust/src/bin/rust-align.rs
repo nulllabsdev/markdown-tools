@@ -31,9 +31,11 @@ fn run(args: &[String]) -> io::Result<()> {
     for arg in args {
         let path = Path::new(arg);
         if path.is_dir() {
-            markdown_tools::format_directory(path)?;
-        } else {
-            format_file(path)?;
+            for changed in markdown_tools::format_directory(path)? {
+                println!("{}", changed.display());
+            }
+        } else if format_file(path)? {
+            println!("{}", path.display());
         }
     }
     Ok(())
@@ -41,11 +43,13 @@ fn run(args: &[String]) -> io::Result<()> {
 
 /// Rewrites a single file in place, leaving it untouched when the formatted
 /// content is identical. Writing to the existing file keeps its permissions.
-fn format_file(path: &Path) -> io::Result<()> {
+/// Returns whether the file was rewritten.
+fn format_file(path: &Path) -> io::Result<bool> {
     let data = fs::read_to_string(path)?;
     let formatted = markdown_tools::format_str(&data);
-    if formatted != data {
-        fs::write(path, formatted)?;
+    if formatted == data {
+        return Ok(false);
     }
-    Ok(())
+    fs::write(path, formatted)?;
+    Ok(true)
 }

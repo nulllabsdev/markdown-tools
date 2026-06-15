@@ -10,10 +10,12 @@ cell, with one space of padding around every cell and separator.
 ### Behaviour
 
 - **Form:** a library exposing a pure core plus a directory walker (see API
-  below). No CLI is required.
+  below), and a thin CLI for each language (`go-align`, `rust-align`).
 - **Scope:** processes a directory and all its subfolders, limited to `*.md`
   files, editing each file **in place**. Original line endings (LF vs CRLF) and
   trailing-newline state are preserved.
+- **Reporting:** when formatting in place, the CLIs print the full path of every
+  file they changed, one per line; files that are already aligned print nothing.
 - **Recognised tables:** only fully-piped tables — every row, the header, and
   the separator line must have a leading and trailing `|`. A valid table needs
   both a header row and a separator line.
@@ -115,12 +117,39 @@ written; only the one below it is formatted.
 - when calculating, we need to consider one space around any text or separators
 - tool needs to be written in both Rust and Golang
 
+## CLI
+
+Build both binaries with `make` (output lands in `bin/`):
+
+```
+make            # build bin/go-align and bin/rust-align
+make go-align   # build only the Go binary
+make rust-align # build only the Rust binary
+```
+
+Each binary shares the same interface:
+
+- **No arguments** — read markdown from stdin, write the formatted result to
+  stdout.
+- **One or more paths** — format each in place. A directory is walked
+  recursively for `*.md` files; a file is rewritten only if its content changes.
+  The full path of every file that changed is printed to stdout, one per line.
+
+```
+$ bin/go-align docs/
+docs/guide.md
+docs/api/reference.md
+
+$ cat table.md | bin/rust-align     # stdin → stdout, nothing else printed
+```
+
 ## Project layout
 
 ```
-/rust       Rust implementation (lib crate `markdown_tools`, edition 2021)
-/go         Go implementation (package `mdtable`, Go 1.22+)
+/rust       Rust implementation (lib crate `markdown_tools` + bin `rust-align`)
+/go         Go implementation (package `mdtable` + cmd `go-align`, Go 1.22+)
 /testdata   Shared fixtures: `name.input` / `name.output` pairs run by both
+/Makefile   Builds both CLIs into /bin
 ```
 
 Both implementations are verified against the same `*.input` / `*.output`
@@ -134,7 +163,8 @@ Each language exposes the same two entry points:
 
 - `format_str` — pure, in-memory string → string; the primary unit-test target.
 - `format_directory` — recursively finds `*.md` under a path and rewrites each
-  in place.
+  in place, returning the paths of the files it changed (Go: `[]string`; Rust:
+  `Vec<PathBuf>`) so callers can report them.
 
 ### Dependencies
 

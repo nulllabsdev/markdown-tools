@@ -88,8 +88,25 @@ func TestFormatDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := FormatDirectory(dir); err != nil {
+	changed, err := FormatDirectory(dir)
+	if err != nil {
 		t.Fatalf("FormatDirectory: %v", err)
+	}
+
+	// All three *.md fixtures differ from their formatted form, so each must be
+	// reported as changed; the .txt file must not appear.
+	wantChanged := map[string]bool{
+		filepath.Join(dir, "three-alignments.md"): true,
+		filepath.Join(dir, "cjk.md"):              true,
+		filepath.Join(sub, "emoji.md"):            true,
+	}
+	if len(changed) != len(wantChanged) {
+		t.Errorf("changed = %v, want %d entries", changed, len(wantChanged))
+	}
+	for _, p := range changed {
+		if !wantChanged[p] {
+			t.Errorf("unexpected changed path %q", p)
+		}
 	}
 
 	for _, f := range mdFixtures {

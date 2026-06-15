@@ -99,8 +99,10 @@ func FormatString(s string) string {
 
 // FormatDirectory walks root recursively and formats every *.md file in place,
 // rewriting only files whose content actually changes and preserving file mode.
-func FormatDirectory(root string) error {
-	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+// It returns the paths of the files it rewrote, in walk order.
+func FormatDirectory(root string) ([]string, error) {
+	var changed []string
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -119,8 +121,13 @@ func FormatDirectory(root string) error {
 		if err != nil {
 			return err
 		}
-		return os.WriteFile(path, []byte(formatted), info.Mode().Perm())
+		if err := os.WriteFile(path, []byte(formatted), info.Mode().Perm()); err != nil {
+			return err
+		}
+		changed = append(changed, path)
+		return nil
 	})
+	return changed, err
 }
 
 // fenceToken reports whether a trimmed line opens or closes a fenced code block,

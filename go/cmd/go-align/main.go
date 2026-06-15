@@ -37,28 +37,39 @@ func run(args []string) error {
 			return err
 		}
 		if info.IsDir() {
-			if err := mdtable.FormatDirectory(path); err != nil {
+			changed, err := mdtable.FormatDirectory(path)
+			if err != nil {
 				return err
+			}
+			for _, p := range changed {
+				fmt.Println(p)
 			}
 			continue
 		}
-		if err := formatFile(path, info.Mode().Perm()); err != nil {
+		changed, err := formatFile(path, info.Mode().Perm())
+		if err != nil {
 			return err
+		}
+		if changed {
+			fmt.Println(path)
 		}
 	}
 	return nil
 }
 
 // formatFile rewrites a single file in place, leaving it untouched when the
-// formatted content is identical.
-func formatFile(path string, perm os.FileMode) error {
+// formatted content is identical. It reports whether the file was rewritten.
+func formatFile(path string, perm os.FileMode) (bool, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		return false, err
 	}
 	formatted := mdtable.FormatString(string(data))
 	if formatted == string(data) {
-		return nil
+		return false, nil
 	}
-	return os.WriteFile(path, []byte(formatted), perm)
+	if err := os.WriteFile(path, []byte(formatted), perm); err != nil {
+		return false, err
+	}
+	return true, nil
 }

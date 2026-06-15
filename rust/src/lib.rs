@@ -6,7 +6,7 @@
 
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use unicode_width::UnicodeWidthStr;
 
@@ -97,23 +97,27 @@ pub fn format_str(input: &str) -> String {
 }
 
 /// Walks `root` recursively and formats every `*.md` file in place, rewriting
-/// only files whose content actually changes.
-pub fn format_directory(root: impl AsRef<Path>) -> io::Result<()> {
-    visit(root.as_ref())
+/// only files whose content actually changes. Returns the paths of the files it
+/// rewrote, in walk order.
+pub fn format_directory(root: impl AsRef<Path>) -> io::Result<Vec<PathBuf>> {
+    let mut changed = Vec::new();
+    visit(root.as_ref(), &mut changed)?;
+    Ok(changed)
 }
 
-fn visit(dir: &Path) -> io::Result<()> {
+fn visit(dir: &Path, changed: &mut Vec<PathBuf>) -> io::Result<()> {
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
         if entry.file_type()?.is_dir() {
-            visit(&path)?;
+            visit(&path, changed)?;
         } else if is_markdown(&path) {
             let data = fs::read_to_string(&path)?;
             let formatted = format_str(&data);
             if formatted != data {
                 // Writing to the existing file keeps its permissions.
                 fs::write(&path, formatted)?;
+                changed.push(path);
             }
         }
     }
