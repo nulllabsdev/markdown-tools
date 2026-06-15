@@ -1,0 +1,6 @@
+# Built CLI binaries (produced by `make`)
+/bin/
+
+# Rust build artifacts
+/target/
+/rust/target/
