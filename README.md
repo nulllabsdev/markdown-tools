@@ -43,7 +43,7 @@ cell, with one space of padding around every cell and separator.
 
 **The three alignments**
 ```
-| Name  | Age | City        |
+| Name  | Age |        City |
 | :---- | :-: | ----------: |
 | Alice | 30  |         NYC |
 | Bob   |  5  | Los Angeles |
@@ -120,11 +120,13 @@ written; only the one below it is formatted.
 ```
 /rust       Rust implementation (lib crate `markdown_tools`, edition 2021)
 /go         Go implementation (package `mdtable`, Go 1.22+)
-/testdata   Shared fixtures: `name.in.md` / `name.out.md` pairs run by both
+/testdata   Shared fixtures: `name.input` / `name.output` pairs run by both
 ```
 
-Both implementations are verified against the same `*.in.md` / `*.out.md`
-fixtures so their output is provably identical.
+Both implementations are verified against the same `*.input` / `*.output`
+fixtures so their output is provably identical. Each test reads an `.input`
+file, formats it, and asserts the result equals the matching `.output` file
+byte-for-byte.
 
 ### Public API
 
