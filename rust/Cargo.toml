@@ -9,5 +9,9 @@ license = "MIT"
 name = "rust-align"
 path = "src/bin/rust-align.rs"
 
+[[bin]]
+name = "rust-wrap"
+path = "src/bin/rust-wrap.rs"
+
 [dependencies]
 unicode-width = "0.2"
