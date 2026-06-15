@@ -168,7 +168,8 @@ func FormatDirectory(root string) ([]string, error) {
 
 // openingFenceToken reports whether a trimmed line opens a fenced code block,
 // returning the fence character and run length. Opening fences may include an
-// info string after the marker run.
+// info string after the marker run; a backtick fence's info string may not
+// contain a backtick (otherwise inline code spans would be misread as fences).
 func openingFenceToken(trimmed string) (byte, int, bool) {
 	if len(trimmed) < 3 {
 		return 0, 0, false
@@ -182,6 +183,9 @@ func openingFenceToken(trimmed string) (byte, int, bool) {
 		n++
 	}
 	if n < 3 {
+		return 0, 0, false
+	}
+	if c == '`' && strings.IndexByte(trimmed[n:], '`') >= 0 {
 		return 0, 0, false
 	}
 	return c, n, true

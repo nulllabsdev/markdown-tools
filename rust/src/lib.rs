@@ -194,7 +194,8 @@ fn is_markdown(path: &Path) -> bool {
 
 /// Reports whether a trimmed line opens a fenced code block, returning the
 /// fence byte and run length. Opening fences may include an info string after
-/// the marker run.
+/// the marker run; a backtick fence's info string may not contain a backtick
+/// (otherwise inline code spans would be misread as fences).
 fn opening_fence_token(trimmed: &str) -> Option<(u8, usize)> {
     let bytes = trimmed.as_bytes();
     if bytes.len() < 3 {
@@ -206,6 +207,9 @@ fn opening_fence_token(trimmed: &str) -> Option<(u8, usize)> {
     }
     let n = bytes.iter().take_while(|&&b| b == c).count();
     if n < 3 {
+        return None;
+    }
+    if c == b'`' && bytes[n..].contains(&b'`') {
         return None;
     }
     Some((c, n))

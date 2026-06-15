@@ -74,6 +74,20 @@ fn code_fence_close_requires_only_fence_markers() {
 }
 
 #[test]
+fn backtick_fence_info_string_rejects_backtick() {
+    // A backtick fence whose info string contains a backtick is not a fence, so
+    // the table after it must still be formatted.
+    let input = "```js`x\n| a | b |\n|-|-|\n| 1 | 2 |\n";
+    let want = "```js`x\n| a   | b   |\n| --- | --- |\n| 1   | 2   |\n";
+    assert_eq!(format_str(input), want);
+
+    // A tilde fence's info string may contain backticks, so it still opens a
+    // fence and the table inside is left untouched.
+    let tilde = "~~~js`x\n| a | b |\n|-|-|\n~~~\n";
+    assert_eq!(format_str(tilde), tilde);
+}
+
+#[test]
 fn format_directory_accepts_markdown_file_root() {
     let dir = std::env::temp_dir().join(format!(
         "mdtools-rust-file-root-test-{}",

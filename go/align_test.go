@@ -74,6 +74,23 @@ func TestCodeFenceCloseRequiresOnlyFenceMarkers(t *testing.T) {
 	}
 }
 
+func TestBacktickFenceInfoStringRejectsBacktick(t *testing.T) {
+	// A backtick fence whose info string contains a backtick is not a fence, so
+	// the table after it must still be formatted.
+	input := "```js`x\n| a | b |\n|-|-|\n| 1 | 2 |\n"
+	want := "```js`x\n| a   | b   |\n| --- | --- |\n| 1   | 2   |\n"
+	if got := FormatString(input); got != want {
+		t.Errorf("backtick info string treated as fence\n--- got ---\n%q\n--- want ---\n%q", got, want)
+	}
+
+	// A tilde fence's info string may contain backticks, so it still opens a
+	// fence and the table inside is left untouched.
+	tilde := "~~~js`x\n| a | b |\n|-|-|\n~~~\n"
+	if got := FormatString(tilde); got != tilde {
+		t.Errorf("tilde fence with backtick info not honored\n--- got ---\n%q\n--- want ---\n%q", got, tilde)
+	}
+}
+
 // TestFormatDirectory verifies recursive in-place formatting of *.md files,
 // leaving non-markdown files untouched.
 func TestFormatDirectory(t *testing.T) {
