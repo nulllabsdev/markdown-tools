@@ -65,6 +65,15 @@ fn preserves_mixed_line_endings() {
 }
 
 #[test]
+fn code_fence_close_requires_only_fence_markers() {
+    let input =
+        "```markdown\n```not a closer\n| not | touched |\n|-|-|\n```\n| yes | formatted |\n| --- | --- |\n";
+    let want =
+        "```markdown\n```not a closer\n| not | touched |\n|-|-|\n```\n| yes | formatted |\n| --- | --------- |\n";
+    assert_eq!(format_str(input), want);
+}
+
+#[test]
 fn format_directory_in_place() {
     let dir = testdata_dir();
 

@@ -54,12 +54,15 @@ func FormatString(s string) string {
 		trimmed := strings.TrimSpace(lines[i].text)
 
 		// Code-fence boundaries pass through and toggle fence state.
-		if marker, n, ok := fenceToken(trimmed); ok {
-			if !inFence {
+		if !inFence {
+			if marker, n, ok := openingFenceToken(trimmed); ok {
 				inFence, fenceMarker, fenceLen = true, marker, n
-			} else if marker == fenceMarker && n >= fenceLen {
-				inFence = false
+				out = append(out, lines[i])
+				i++
+				continue
 			}
+		} else if isClosingFence(trimmed, fenceMarker, fenceLen) {
+			inFence = false
 			out = append(out, lines[i])
 			i++
 			continue
@@ -163,9 +166,10 @@ func FormatDirectory(root string) ([]string, error) {
 	return changed, err
 }
 
-// fenceToken reports whether a trimmed line opens or closes a fenced code block,
-// returning the fence character and run length.
-func fenceToken(trimmed string) (byte, int, bool) {
+// openingFenceToken reports whether a trimmed line opens a fenced code block,
+// returning the fence character and run length. Opening fences may include an
+// info string after the marker run.
+func openingFenceToken(trimmed string) (byte, int, bool) {
 	if len(trimmed) < 3 {
 		return 0, 0, false
 	}
@@ -181,6 +185,21 @@ func fenceToken(trimmed string) (byte, int, bool) {
 		return 0, 0, false
 	}
 	return c, n, true
+}
+
+// isClosingFence reports whether a trimmed line closes the current fenced code
+// block. Closing fences must contain only the opening fence character and must
+// be at least as long as the opening fence.
+func isClosingFence(trimmed string, marker byte, minLen int) bool {
+	if len(trimmed) < minLen {
+		return false
+	}
+	for i := 0; i < len(trimmed); i++ {
+		if trimmed[i] != marker {
+			return false
+		}
+	}
+	return true
 }
 
 // isPipeRow reports whether a line's trimmed text starts and ends with '|'.

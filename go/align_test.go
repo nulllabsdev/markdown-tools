@@ -66,6 +66,14 @@ func TestFormatStringPreservesMixedLineEndings(t *testing.T) {
 	}
 }
 
+func TestCodeFenceCloseRequiresOnlyFenceMarkers(t *testing.T) {
+	input := "```markdown\n```not a closer\n| not | touched |\n|-|-|\n```\n| yes | formatted |\n| --- | --- |\n"
+	want := "```markdown\n```not a closer\n| not | touched |\n|-|-|\n```\n| yes | formatted |\n| --- | --------- |\n"
+	if got := FormatString(input); got != want {
+		t.Errorf("code fence closed too early\n--- got ---\n%q\n--- want ---\n%q", got, want)
+	}
+}
+
 // TestFormatDirectory verifies recursive in-place formatting of *.md files,
 // leaving non-markdown files untouched.
 func TestFormatDirectory(t *testing.T) {

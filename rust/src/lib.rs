@@ -53,14 +53,17 @@ pub fn format_str(input: &str) -> String {
         let trimmed = lines[i].text.trim();
 
         // Code-fence boundaries pass through and toggle fence state.
-        if let Some((marker, n)) = fence_token(trimmed) {
-            if !in_fence {
+        if !in_fence {
+            if let Some((marker, n)) = opening_fence_token(trimmed) {
                 in_fence = true;
                 fence_marker = marker;
                 fence_len = n;
-            } else if marker == fence_marker && n >= fence_len {
-                in_fence = false;
+                out.push((lines[i].text.to_string(), lines[i].eol));
+                i += 1;
+                continue;
             }
+        } else if is_closing_fence(trimmed, fence_marker, fence_len) {
+            in_fence = false;
             out.push((lines[i].text.to_string(), lines[i].eol));
             i += 1;
             continue;
@@ -171,9 +174,10 @@ fn is_markdown(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
-/// Reports whether a trimmed line opens or closes a fenced code block,
-/// returning the fence byte and run length.
-fn fence_token(trimmed: &str) -> Option<(u8, usize)> {
+/// Reports whether a trimmed line opens a fenced code block, returning the
+/// fence byte and run length. Opening fences may include an info string after
+/// the marker run.
+fn opening_fence_token(trimmed: &str) -> Option<(u8, usize)> {
     let bytes = trimmed.as_bytes();
     if bytes.len() < 3 {
         return None;
@@ -187,6 +191,13 @@ fn fence_token(trimmed: &str) -> Option<(u8, usize)> {
         return None;
     }
     Some((c, n))
+}
+
+/// Reports whether a trimmed line closes the current fenced code block. Closing
+/// fences must contain only the opening fence byte and must be at least as long
+/// as the opening fence.
+fn is_closing_fence(trimmed: &str, marker: u8, min_len: usize) -> bool {
+    trimmed.len() >= min_len && trimmed.bytes().all(|b| b == marker)
 }
 
 /// Reports whether a line's trimmed text starts and ends with `|`.
