@@ -4,6 +4,7 @@
 //! This is the Rust counterpart of the Go `mdtable` package; both are verified
 //! against the same fixtures in `testdata/` to guarantee identical output.
 
+use std::borrow::Cow;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -43,7 +44,7 @@ fn disp_width(s: &str) -> usize {
 pub fn format_str(input: &str) -> String {
     let lines = split_lines(input);
 
-    let mut out: Vec<(String, &str)> = Vec::with_capacity(lines.len());
+    let mut out: Vec<(Cow<str>, &str)> = Vec::with_capacity(lines.len());
     let mut in_fence = false;
     let mut fence_marker = 0u8;
     let mut fence_len = 0usize;
@@ -60,19 +61,19 @@ pub fn format_str(input: &str) -> String {
                     in_fence = true;
                     fence_marker = marker;
                     fence_len = n;
-                    out.push((lines[i].text.to_string(), lines[i].eol));
+                    out.push((Cow::Borrowed(lines[i].text), lines[i].eol));
                     i += 1;
                     continue;
                 }
             } else if is_closing_fence(trimmed, fence_marker, fence_len) {
                 in_fence = false;
-                out.push((lines[i].text.to_string(), lines[i].eol));
+                out.push((Cow::Borrowed(lines[i].text), lines[i].eol));
                 i += 1;
                 continue;
             }
         }
         if in_fence {
-            out.push((lines[i].text.to_string(), lines[i].eol));
+            out.push((Cow::Borrowed(lines[i].text), lines[i].eol));
             i += 1;
             continue;
         }
@@ -89,13 +90,13 @@ pub fn format_str(input: &str) -> String {
                 formatted
                     .into_iter()
                     .enumerate()
-                    .map(|(n, text)| (text, lines[i + n].eol)),
+                    .map(|(n, text)| (Cow::Owned(text), lines[i + n].eol)),
             );
             i = j;
             continue;
         }
 
-        out.push((lines[i].text.to_string(), lines[i].eol));
+        out.push((Cow::Borrowed(lines[i].text), lines[i].eol));
         i += 1;
     }
 
