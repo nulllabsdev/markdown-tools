@@ -5,14 +5,16 @@
 #   make rust-align # build only the Rust aligner
 #   make go-wrap    # build only the Go prose wrapper
 #   make rust-wrap  # build only the Rust prose wrapper
+#   make go-align-graph   # build only the Go ASCII-graph aligner
+#   make rust-align-graph # build only the Rust ASCII-graph aligner
 #   make test       # run all tests (both tools, both languages)
 #   make clean      # remove built binaries
 
 BIN_DIR := bin
 
-.PHONY: all go-align rust-align go-wrap rust-wrap test test-go test-rust clean
+.PHONY: all go-align rust-align go-wrap rust-wrap go-align-graph rust-align-graph test test-go test-rust clean
 
-all: go-align rust-align go-wrap rust-wrap
+all: go-align rust-align go-wrap rust-wrap go-align-graph rust-align-graph
 
 # Tests are per language: `go test ./...` covers the aligner and wrapper Go
 # packages and commands; `cargo test` covers both Rust binaries and the lib.
@@ -41,6 +43,15 @@ rust-wrap:
 	cd rust && cargo build --release --bin rust-wrap
 	mkdir -p $(BIN_DIR)
 	cp rust/target/release/rust-wrap $(BIN_DIR)/rust-wrap
+
+go-align-graph:
+	mkdir -p $(BIN_DIR)
+	cd go && go build -o ../$(BIN_DIR)/go-align-graph ./cmd/go-align-graph
+
+rust-align-graph:
+	cd rust && cargo build --release --bin rust-align-graph
+	mkdir -p $(BIN_DIR)
+	cp rust/target/release/rust-align-graph $(BIN_DIR)/rust-align-graph
 
 clean:
 	rm -rf $(BIN_DIR)
