@@ -5,13 +5,24 @@
 #   make rust-align # build only the Rust aligner
 #   make go-wrap    # build only the Go prose wrapper
 #   make rust-wrap  # build only the Rust prose wrapper
+#   make test       # run all tests (both tools, both languages)
 #   make clean      # remove built binaries
 
 BIN_DIR := bin
 
-.PHONY: all go-align rust-align go-wrap rust-wrap clean
+.PHONY: all go-align rust-align go-wrap rust-wrap test test-go test-rust clean
 
 all: go-align rust-align go-wrap rust-wrap
+
+# Tests are per language: `go test ./...` covers the aligner and wrapper Go
+# packages and commands; `cargo test` covers both Rust binaries and the lib.
+test: test-go test-rust
+
+test-go:
+	cd go && go test ./...
+
+test-rust:
+	cd rust && cargo test
 
 go-align:
 	mkdir -p $(BIN_DIR)
