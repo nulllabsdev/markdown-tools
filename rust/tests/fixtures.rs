@@ -136,6 +136,16 @@ fn format_directory_in_place() {
         let input = read(&dir.join(format!("{f}.input")));
         fs::write(scratch.join(format!("{f}.md")), input).unwrap();
     }
+    let unchanged_fixtures = [
+        "bodul-catalog-processing",
+        "bodul-phase1-overview",
+        "bodul-scraping-fallback",
+        "bodul-sitemap-discovery",
+    ];
+    for f in unchanged_fixtures {
+        let input = read(&dir.join(format!("{f}.input")));
+        fs::write(scratch.join(format!("{f}.md")), input).unwrap();
+    }
     // Nested *.md to confirm recursion.
     fs::write(nested.join("emoji.md"), read(&dir.join("emoji.input"))).unwrap();
 
@@ -159,6 +169,11 @@ fn format_directory_in_place() {
         let want = read(&dir.join(format!("{f}.output")));
         let got = read(&scratch.join(format!("{f}.md")));
         assert_eq!(got, want, "{f}.md not formatted in place");
+    }
+    for f in unchanged_fixtures {
+        let want = read(&dir.join(format!("{f}.output")));
+        let got = read(&scratch.join(format!("{f}.md")));
+        assert_eq!(got, want, "{f}.md changed unexpectedly");
     }
     let want_emoji = read(&dir.join("emoji.output"));
     assert_eq!(

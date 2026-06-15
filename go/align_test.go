@@ -120,6 +120,18 @@ func TestFormatDirectory(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	unchangedFixtures := []string{
+		"bodul-catalog-processing",
+		"bodul-phase1-overview",
+		"bodul-scraping-fallback",
+		"bodul-sitemap-discovery",
+	}
+	for _, f := range unchangedFixtures {
+		in := readFile(t, filepath.Join("..", "testdata", f+".input"))
+		if err := os.WriteFile(filepath.Join(dir, f+".md"), []byte(in), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	// Nested *.md to confirm recursion into subdirectories.
 	sub := filepath.Join(dir, "nested")
@@ -164,6 +176,12 @@ func TestFormatDirectory(t *testing.T) {
 		want := readFile(t, filepath.Join("..", "testdata", f+".output"))
 		if got := readFile(t, filepath.Join(dir, f+".md")); got != want {
 			t.Errorf("%s.md not formatted in place\n got: %q\nwant: %q", f, got, want)
+		}
+	}
+	for _, f := range unchangedFixtures {
+		want := readFile(t, filepath.Join("..", "testdata", f+".output"))
+		if got := readFile(t, filepath.Join(dir, f+".md")); got != want {
+			t.Errorf("%s.md changed unexpectedly\n got: %q\nwant: %q", f, got, want)
 		}
 	}
 	wantEmoji := readFile(t, filepath.Join("..", "testdata", "emoji.output"))
