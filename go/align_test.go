@@ -58,6 +58,14 @@ func TestIdempotent(t *testing.T) {
 	}
 }
 
+func TestFormatStringPreservesMixedLineEndings(t *testing.T) {
+	input := "intro\r\n| A | B |\n| --- | --- |\r\n| x | yy |\nend"
+	want := "intro\r\n| A   | B   |\n| --- | --- |\r\n| x   | yy  |\nend"
+	if got := FormatString(input); got != want {
+		t.Errorf("mixed line endings not preserved\n--- got ---\n%q\n--- want ---\n%q", got, want)
+	}
+}
+
 // TestFormatDirectory verifies recursive in-place formatting of *.md files,
 // leaving non-markdown files untouched.
 func TestFormatDirectory(t *testing.T) {

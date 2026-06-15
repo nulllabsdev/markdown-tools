@@ -58,6 +58,13 @@ fn idempotent() {
 }
 
 #[test]
+fn preserves_mixed_line_endings() {
+    let input = "intro\r\n| A | B |\n| --- | --- |\r\n| x | yy |\nend";
+    let want = "intro\r\n| A   | B   |\n| --- | --- |\r\n| x   | yy  |\nend";
+    assert_eq!(format_str(input), want);
+}
+
+#[test]
 fn format_directory_in_place() {
     let dir = testdata_dir();
 

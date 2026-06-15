@@ -25,6 +25,12 @@ enum Align {
     Right,
 }
 
+#[derive(Clone, Copy)]
+struct LogicalLine<'a> {
+    text: &'a str,
+    eol: &'a str,
+}
+
 /// Display width of `s`, measured with ambiguous-width characters treated as
 /// narrow (matching the Go implementation's `EastAsianWidth: false`).
 fn disp_width(s: &str) -> usize {
@@ -35,25 +41,16 @@ fn disp_width(s: &str) -> usize {
 /// and side-effect free. The original newline style (LF vs CRLF) and
 /// trailing-newline state are preserved.
 pub fn format_str(input: &str) -> String {
-    let newline = if input.contains("\r\n") { "\r\n" } else { "\n" };
+    let lines = split_lines(input);
 
-    let normalized = input.replace("\r\n", "\n");
-    let trailing = normalized.ends_with('\n');
-    let body = if trailing {
-        &normalized[..normalized.len() - 1]
-    } else {
-        &normalized[..]
-    };
-    let lines: Vec<&str> = body.split('\n').collect();
-
-    let mut out: Vec<String> = Vec::with_capacity(lines.len());
+    let mut out: Vec<(String, &str)> = Vec::with_capacity(lines.len());
     let mut in_fence = false;
     let mut fence_marker = 0u8;
     let mut fence_len = 0usize;
 
     let mut i = 0;
     while i < lines.len() {
-        let trimmed = lines[i].trim();
+        let trimmed = lines[i].text.trim();
 
         // Code-fence boundaries pass through and toggle fence state.
         if let Some((marker, n)) = fence_token(trimmed) {
@@ -64,36 +61,80 @@ pub fn format_str(input: &str) -> String {
             } else if marker == fence_marker && n >= fence_len {
                 in_fence = false;
             }
-            out.push(lines[i].to_string());
+            out.push((lines[i].text.to_string(), lines[i].eol));
             i += 1;
             continue;
         }
         if in_fence {
-            out.push(lines[i].to_string());
+            out.push((lines[i].text.to_string(), lines[i].eol));
             i += 1;
             continue;
         }
 
         // A table is a pipe row immediately followed by a valid separator row.
-        if i + 1 < lines.len() && is_pipe_row(lines[i]) && is_separator_row(lines[i + 1]) {
+        if i + 1 < lines.len() && is_pipe_row(lines[i].text) && is_separator_row(lines[i + 1].text)
+        {
             let mut j = i + 2;
-            while j < lines.len() && is_pipe_row(lines[j]) {
+            while j < lines.len() && is_pipe_row(lines[j].text) {
                 j += 1;
             }
-            out.extend(format_table(&lines[i..j]));
+            let formatted = format_table(&line_texts(&lines[i..j]));
+            out.extend(
+                formatted
+                    .into_iter()
+                    .enumerate()
+                    .map(|(n, text)| (text, lines[i + n].eol)),
+            );
             i = j;
             continue;
         }
 
-        out.push(lines[i].to_string());
+        out.push((lines[i].text.to_string(), lines[i].eol));
         i += 1;
     }
 
-    let mut result = out.join(newline);
-    if trailing {
-        result.push_str(newline);
+    let mut result = String::new();
+    for (text, eol) in out {
+        result.push_str(&text);
+        result.push_str(eol);
     }
     result
+}
+
+fn split_lines(input: &str) -> Vec<LogicalLine<'_>> {
+    if input.is_empty() {
+        return vec![LogicalLine { text: "", eol: "" }];
+    }
+
+    let mut lines =
+        Vec::with_capacity(input.as_bytes().iter().filter(|&&b| b == b'\n').count() + 1);
+    let mut start = 0;
+    for (i, b) in input.bytes().enumerate() {
+        if b != b'\n' {
+            continue;
+        }
+        let (end, eol) = if i > start && input.as_bytes()[i - 1] == b'\r' {
+            (i - 1, "\r\n")
+        } else {
+            (i, "\n")
+        };
+        lines.push(LogicalLine {
+            text: &input[start..end],
+            eol,
+        });
+        start = i + 1;
+    }
+    if start < input.len() {
+        lines.push(LogicalLine {
+            text: &input[start..],
+            eol: "",
+        });
+    }
+    lines
+}
+
+fn line_texts<'a>(lines: &[LogicalLine<'a>]) -> Vec<&'a str> {
+    lines.iter().map(|line| line.text).collect()
 }
 
 /// Walks `root` recursively and formats every `*.md` file in place, rewriting
