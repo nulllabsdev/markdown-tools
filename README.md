@@ -148,18 +148,48 @@ $ bin/rust-wrap -n 100 docs/
 docs/guide.md
 ```
 
+## Align ASCII graphs
+
+Re-renders ASCII flowcharts inside fenced ` ```text ` code blocks to a canonical,
+centered form so they read cleanly in raw markdown.
+
+### Behaviour
+
+- **Boxes** are normalized to a 30-character inner width with their label
+  centered (odd extra space on the right).
+- **Box-rows** (one or more boxes side by side, joined by two spaces) are centered
+  as a group within 80 columns.
+- **Structural connector lines** (made only of `|`, `v`, `+`, `-`) are re-centered
+  in 80 columns so vertical and 2-way branch connectors line up beneath the boxes;
+  **text annotations** on connectors (e.g. `for each item`) keep their exact
+  position.
+- **Scope:** only ` ```text ` blocks that contain at least one box are touched.
+  Non-graph ` ```text ` blocks, non-`text` fences, and all unfenced markdown pass
+  through byte-for-byte. Line endings and trailing-newline state are preserved,
+  and already-aligned graphs are idempotent.
+
+Known limitation: a box whose label exceeds 30 display columns leaves its whole
+graph block untouched (labels are centered, never re-wrapped).
+
+```
+$ bin/go-align-graph README.md
+README.md
+```
+
 ## CLI
 
 Build the binaries with `make` (output lands in `bin/`):
 
 ```
-make            # build all four binaries
-make go-align   # aligner (Go)        make rust-align # aligner (Rust)
-make go-wrap    # wrapper (Go)        make rust-wrap  # wrapper (Rust)
+make                  # build all six binaries
+make go-align         # aligner (Go)        make rust-align       # aligner (Rust)
+make go-wrap          # wrapper (Go)        make rust-wrap        # wrapper (Rust)
+make go-align-graph   # graph (Go)          make rust-align-graph # graph (Rust)
 ```
 
-There are two tools — `*-align` (table aligner) and `*-wrap` (prose wrapper) —
-each in a Go and a Rust build. They share the same interface:
+There are three tools — `*-align` (table aligner), `*-wrap` (prose wrapper), and
+`*-align-graph` (ASCII-graph aligner) — each in a Go and a Rust build. They share
+the same interface:
 
 - **No arguments** — read markdown from stdin, write the result to stdout.
 - **One or more paths** — process each in place. A directory is walked
@@ -181,11 +211,12 @@ docs/guide.md
 ## Project layout
 
 ```
-/rust       Rust crate `markdown_tools` (bins `rust-align`, `rust-wrap`)
-/go         Go package `mdtable` (cmds `go-align`, `go-wrap`, Go 1.22+)
-/testdata       Shared aligner fixtures: `name.input` / `name.output`
-/testdata/wrap  Shared wrapper fixtures (run at width 80)
-/Makefile   Builds all four CLIs into /bin
+/rust       Rust crate `markdown_tools` (bins rust-align, rust-wrap, rust-align-graph)
+/go         Go package `mdtable` (cmds go-align, go-wrap, go-align-graph, Go 1.22+)
+/testdata        Shared aligner fixtures: `name.input` / `name.output`
+/testdata/wrap   Shared wrapper fixtures (run at width 80)
+/testdata/graph  Shared ASCII-graph fixtures
+/Makefile   Builds all six CLIs into /bin
 ```
 
 Both implementations are verified against the same `*.input` / `*.output`
@@ -195,13 +226,14 @@ byte-for-byte.
 
 ### Public API
 
-Each language exposes the same entry points for both tools:
+Each language exposes the same pair of entry points for every tool:
 
-- `format_str` / `wrap_str` — pure, in-memory string → string; the primary
-  unit-test targets (`wrap_str` also takes a width).
-- `format_directory` / `wrap_directory` — recursively find `*.md` under a path
-  and rewrite each in place, returning the paths of the files they changed (Go:
-  `[]string`; Rust: `Vec<PathBuf>`) so callers can report them.
+- `format_str` / `wrap_str` / `align_graph_str` — pure, in-memory string → string;
+  the primary unit-test targets (`wrap_str` also takes a width).
+- `format_directory` / `wrap_directory` / `align_graph_directory` — recursively
+  find `*.md` under a path and rewrite each in place, returning the paths of the
+  files they changed (Go: `[]string`; Rust: `Vec<PathBuf>`) so callers can report
+  them.
 
 ### Dependencies
 

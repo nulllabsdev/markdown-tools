@@ -2,3 +2,5 @@ testdata/*.input -text
 testdata/*.output -text
 testdata/wrap/*.input -text
 testdata/wrap/*.output -text
+testdata/graph/*.input -text
+testdata/graph/*.output -text
