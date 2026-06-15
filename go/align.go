@@ -34,40 +34,41 @@ const (
 	alignRight
 )
 
+type logicalLine struct {
+	text string
+	eol  string
+}
+
 // FormatString formats every recognised pipe table in s and returns the result.
 // It is pure and side-effect free. The original newline style (LF vs CRLF) and
 // trailing-newline state are preserved.
 func FormatString(s string) string {
-	newline := "\n"
-	if strings.Contains(s, "\r\n") {
-		newline = "\r\n"
-	}
+	lines := splitLines(s)
 
-	normalized := strings.ReplaceAll(s, "\r\n", "\n")
-	trailing := strings.HasSuffix(normalized, "\n")
-	if trailing {
-		normalized = normalized[:len(normalized)-1]
-	}
-	lines := strings.Split(normalized, "\n")
-
-	out := make([]string, 0, len(lines))
+	out := make([]logicalLine, 0, len(lines))
 	inFence := false
 	var fenceMarker byte
 	var fenceLen int
 
 	for i := 0; i < len(lines); {
-		trimmed := strings.TrimSpace(lines[i])
+		trimmed := strings.TrimSpace(lines[i].text)
 
-		// Code-fence boundaries pass through and toggle fence state.
-		if marker, n, ok := fenceToken(trimmed); ok {
+		// Code-fence boundaries pass through and toggle fence state. A line
+		// indented four or more columns is indented-code content, not a fence.
+		if !indentedTooFar(lines[i].text) {
 			if !inFence {
-				inFence, fenceMarker, fenceLen = true, marker, n
-			} else if marker == fenceMarker && n >= fenceLen {
+				if marker, n, ok := openingFenceToken(trimmed); ok {
+					inFence, fenceMarker, fenceLen = true, marker, n
+					out = append(out, lines[i])
+					i++
+					continue
+				}
+			} else if isClosingFence(trimmed, fenceMarker, fenceLen) {
 				inFence = false
+				out = append(out, lines[i])
+				i++
+				continue
 			}
-			out = append(out, lines[i])
-			i++
-			continue
 		}
 		if inFence {
 			out = append(out, lines[i])
@@ -76,12 +77,15 @@ func FormatString(s string) string {
 		}
 
 		// A table is a pipe row immediately followed by a valid separator row.
-		if i+1 < len(lines) && isPipeRow(lines[i]) && isSeparatorRow(lines[i+1]) {
+		if i+1 < len(lines) && isPipeRow(lines[i].text) && isSeparatorRow(lines[i+1].text) {
 			j := i + 2
-			for j < len(lines) && isPipeRow(lines[j]) {
+			for j < len(lines) && isPipeRow(lines[j].text) {
 				j++
 			}
-			out = append(out, formatTable(lines[i:j])...)
+			formatted := formatTable(lineTexts(lines[i:j]))
+			for n, text := range formatted {
+				out = append(out, logicalLine{text: text, eol: lines[i+n].eol})
+			}
 			i = j
 			continue
 		}
@@ -90,11 +94,46 @@ func FormatString(s string) string {
 		i++
 	}
 
-	result := strings.Join(out, newline)
-	if trailing {
-		result += newline
+	var result strings.Builder
+	for _, line := range out {
+		result.WriteString(line.text)
+		result.WriteString(line.eol)
 	}
-	return result
+	return result.String()
+}
+
+func splitLines(s string) []logicalLine {
+	if s == "" {
+		return []logicalLine{{}}
+	}
+
+	lines := make([]logicalLine, 0, strings.Count(s, "\n")+1)
+	start := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] != '\n' {
+			continue
+		}
+		end := i
+		eol := "\n"
+		if i > start && s[i-1] == '\r' {
+			end = i - 1
+			eol = "\r\n"
+		}
+		lines = append(lines, logicalLine{text: s[start:end], eol: eol})
+		start = i + 1
+	}
+	if start < len(s) {
+		lines = append(lines, logicalLine{text: s[start:]})
+	}
+	return lines
+}
+
+func lineTexts(lines []logicalLine) []string {
+	texts := make([]string, len(lines))
+	for i, line := range lines {
+		texts[i] = line.text
+	}
+	return texts
 }
 
 // FormatDirectory walks root recursively and formats every *.md file in place,
@@ -130,9 +169,22 @@ func FormatDirectory(root string) ([]string, error) {
 	return changed, err
 }
 
-// fenceToken reports whether a trimmed line opens or closes a fenced code block,
-// returning the fence character and run length.
-func fenceToken(trimmed string) (byte, int, bool) {
+// indentedTooFar reports whether a line is indented four or more columns, which
+// under CommonMark makes it indented-code content rather than a code fence. A
+// leading tab counts as a full indent on its own.
+func indentedTooFar(line string) bool {
+	spaces := 0
+	for spaces < len(line) && line[spaces] == ' ' {
+		spaces++
+	}
+	return spaces >= 4 || (spaces < len(line) && line[spaces] == '\t')
+}
+
+// openingFenceToken reports whether a trimmed line opens a fenced code block,
+// returning the fence character and run length. Opening fences may include an
+// info string after the marker run; a backtick fence's info string may not
+// contain a backtick (otherwise inline code spans would be misread as fences).
+func openingFenceToken(trimmed string) (byte, int, bool) {
 	if len(trimmed) < 3 {
 		return 0, 0, false
 	}
@@ -147,7 +199,25 @@ func fenceToken(trimmed string) (byte, int, bool) {
 	if n < 3 {
 		return 0, 0, false
 	}
+	if c == '`' && strings.IndexByte(trimmed[n:], '`') >= 0 {
+		return 0, 0, false
+	}
 	return c, n, true
+}
+
+// isClosingFence reports whether a trimmed line closes the current fenced code
+// block. Closing fences must contain only the opening fence character and must
+// be at least as long as the opening fence.
+func isClosingFence(trimmed string, marker byte, minLen int) bool {
+	if len(trimmed) < minLen {
+		return false
+	}
+	for i := 0; i < len(trimmed); i++ {
+		if trimmed[i] != marker {
+			return false
+		}
+	}
+	return true
 }
 
 // isPipeRow reports whether a line's trimmed text starts and ends with '|'.

@@ -5,8 +5,8 @@
 `README.md` specifies a tool that aligns the columns of GitHub-style pipe tables
 in markdown so they read cleanly as raw text. This document records the design
 of the **Go** implementation (package `mdtable`, under `/go`), which is verified
-against the shared fixture suite in `testdata/`. The same fixtures will drive the
-future Rust implementation, guaranteeing byte-for-byte parity between the two.
+against the shared fixture suite in `testdata/`. The Rust implementation uses
+the same fixtures, guaranteeing byte-for-byte parity between the two.
 
 ## Behaviour (the contract)
 
@@ -35,6 +35,7 @@ future Rust implementation, guaranteeing byte-for-byte parity between the two.
   go.sum
   align.go        package mdtable — public API + core formatter
   align_test.go   fixture-driven + idempotency + FormatDirectory tests
+  cmd/go-align    stdin/stdout and in-place CLI wrapper
 ```
 
 Dependency: `github.com/mattn/go-runewidth` for display width. Tests read the
@@ -44,16 +45,17 @@ shared fixtures via the relative path `../testdata`.
 
 - `FormatString(s string) string` — pure, in-memory formatter; the primary test
   target.
-- `FormatDirectory(root string) error` — `filepath.WalkDir` over `root`,
-  formatting every `*.md` file in place (read → `FormatString` → write back only
-  when the content changes, preserving file mode).
+- `FormatDirectory(root string) ([]string, error)` — `filepath.WalkDir` over
+  `root`, formatting every `*.md` file in place (read → `FormatString` → write
+  back only when the content changes, preserving file mode) and returning the
+  changed paths in walk order.
 
 ## Implementation notes (`align.go`)
 
-**Line handling.** Newline style is `\r\n` if present in the input, else `\n`.
-The trailing-newline state is recorded, content is split into logical lines
-(CRLF normalised to LF for processing), and both are restored on output. Mixed
-endings normalise to the dominant style.
+**Line handling.** Input is split into logical lines while retaining each line's
+original terminator (`\n`, `\r\n`, or none for the final unterminated line).
+Formatted output reuses the original terminator for each emitted line, so mixed
+line endings and trailing-newline state are preserved exactly.
 
 **Deterministic width.** A single `&runewidth.Condition{EastAsianWidth: false}`
 is used via `StringWidth`, so ambiguous-width runes are narrow regardless of the
@@ -61,10 +63,14 @@ is used via `StringWidth`, so ambiguous-width runes are narrow regardless of the
 in cell content, `StringWidth` counts the backslash + pipe as 2 with no special
 case.
 
-**Main loop.** Walks logical lines tracking code-fence state. A fence boundary
-(`^(\x60{3,}|~{3,})`) toggles the state and passes through; lines inside a fence
-pass through verbatim. Outside a fence, a table starts where line *i* is a pipe
-row and line *i+1* is a valid separator row (every cell matches
+**Main loop.** Walks logical lines tracking code-fence state. Opening fences are
+detected from a leading run of at least three backticks or tildes and may include
+an info string (a backtick fence's info string may not contain a backtick);
+closing fences must use the same marker, be at least as long as the opener, and
+contain only marker characters after trimming. Fences indented four or more
+columns are treated as indented-code content and ignored. Lines inside a fence
+pass through verbatim. Outside a fence, a table starts where line *i* is a
+pipe row and line *i+1* is a valid separator row (every cell matches
 `^:?-+:?$`). The header, separator, and consecutive body pipe rows are collected,
 formatted, and emitted; everything else passes through unchanged.
 
@@ -104,11 +110,11 @@ go mod tidy && go vet ./... && go build ./... && gofmt -l . && go test ./...
    assert the `*.md` files now equal their `.output` and the non-`.md` file is
    untouched.
 
-All eight fixtures pass: three-alignments, no-markers, cjk, emoji, empty-ragged,
-centered-single-char, escaped-pipe, code-fence-skip.
+The fixture suite covers shared table behavior plus focused regression tests for
+mixed line endings, idempotency, valid code-fence closing, and recursive
+directory formatting.
 
 ## Out of scope
 
-The Rust implementation (separate task), any CLI binary (the spec is
-library-only), inline-code-span pipe parsing beyond `\|`, and tables without
-leading/trailing pipes.
+Inline-code-span pipe parsing beyond `\|`, and tables without leading/trailing
+pipes.

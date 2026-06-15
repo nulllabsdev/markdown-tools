@@ -58,6 +58,69 @@ fn idempotent() {
 }
 
 #[test]
+fn preserves_mixed_line_endings() {
+    let input = "intro\r\n| A | B |\n| --- | --- |\r\n| x | yy |\nend";
+    let want = "intro\r\n| A   | B   |\n| --- | --- |\r\n| x   | yy  |\nend";
+    assert_eq!(format_str(input), want);
+}
+
+#[test]
+fn code_fence_close_requires_only_fence_markers() {
+    let input =
+        "```markdown\n```not a closer\n| not | touched |\n|-|-|\n```\n| yes | formatted |\n| --- | --- |\n";
+    let want =
+        "```markdown\n```not a closer\n| not | touched |\n|-|-|\n```\n| yes | formatted |\n| --- | --------- |\n";
+    assert_eq!(format_str(input), want);
+}
+
+#[test]
+fn backtick_fence_info_string_rejects_backtick() {
+    // A backtick fence whose info string contains a backtick is not a fence, so
+    // the table after it must still be formatted.
+    let input = "```js`x\n| a | b |\n|-|-|\n| 1 | 2 |\n";
+    let want = "```js`x\n| a   | b   |\n| --- | --- |\n| 1   | 2   |\n";
+    assert_eq!(format_str(input), want);
+
+    // A tilde fence's info string may contain backticks, so it still opens a
+    // fence and the table inside is left untouched.
+    let tilde = "~~~js`x\n| a | b |\n|-|-|\n~~~\n";
+    assert_eq!(format_str(tilde), tilde);
+}
+
+#[test]
+fn fence_indentation() {
+    // Four-space indentation is indented-code content, not a fence, so the line
+    // does not open a fence and the table after it is formatted.
+    let deep = "    ```\n| a | b |\n|-|-|\n| 1 | 2 |\n";
+    let want_deep = "    ```\n| a   | b   |\n| --- | --- |\n| 1   | 2   |\n";
+    assert_eq!(format_str(deep), want_deep);
+
+    // Up to three spaces still opens (and closes) a fence, so the table between
+    // the markers is left untouched.
+    let shallow = "   ```\n| a | b |\n|-|-|\n   ```\n";
+    assert_eq!(format_str(shallow), shallow);
+}
+
+#[test]
+fn format_directory_accepts_markdown_file_root() {
+    let dir = std::env::temp_dir().join(format!(
+        "mdtools-rust-file-root-test-{}",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+
+    let path = dir.join("single.md");
+    fs::write(&path, read(&testdata_dir().join("emoji.input"))).unwrap();
+
+    let changed = format_directory(&path).unwrap();
+    assert_eq!(changed, vec![path.clone()]);
+    assert_eq!(read(&path), read(&testdata_dir().join("emoji.output")));
+
+    fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn format_directory_in_place() {
     let dir = testdata_dir();
 
@@ -80,17 +143,15 @@ fn format_directory_in_place() {
     let untouched = "| a | b |\n| - | - |\n";
     fs::write(scratch.join("skip.txt"), untouched).unwrap();
 
-    let mut changed = format_directory(&scratch).unwrap();
-    changed.sort();
+    let changed = format_directory(&scratch).unwrap();
 
     // All three *.md fixtures differ from their formatted form; the .txt file
     // must not be reported.
-    let mut want_changed = vec![
-        scratch.join("three-alignments.md"),
+    let want_changed = vec![
         scratch.join("cjk.md"),
         nested.join("emoji.md"),
+        scratch.join("three-alignments.md"),
     ];
-    want_changed.sort();
     assert_eq!(changed, want_changed, "reported changed files mismatch");
 
     for f in md_fixtures {

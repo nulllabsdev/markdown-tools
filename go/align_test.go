@@ -58,6 +58,56 @@ func TestIdempotent(t *testing.T) {
 	}
 }
 
+func TestFormatStringPreservesMixedLineEndings(t *testing.T) {
+	input := "intro\r\n| A | B |\n| --- | --- |\r\n| x | yy |\nend"
+	want := "intro\r\n| A   | B   |\n| --- | --- |\r\n| x   | yy  |\nend"
+	if got := FormatString(input); got != want {
+		t.Errorf("mixed line endings not preserved\n--- got ---\n%q\n--- want ---\n%q", got, want)
+	}
+}
+
+func TestCodeFenceCloseRequiresOnlyFenceMarkers(t *testing.T) {
+	input := "```markdown\n```not a closer\n| not | touched |\n|-|-|\n```\n| yes | formatted |\n| --- | --- |\n"
+	want := "```markdown\n```not a closer\n| not | touched |\n|-|-|\n```\n| yes | formatted |\n| --- | --------- |\n"
+	if got := FormatString(input); got != want {
+		t.Errorf("code fence closed too early\n--- got ---\n%q\n--- want ---\n%q", got, want)
+	}
+}
+
+func TestBacktickFenceInfoStringRejectsBacktick(t *testing.T) {
+	// A backtick fence whose info string contains a backtick is not a fence, so
+	// the table after it must still be formatted.
+	input := "```js`x\n| a | b |\n|-|-|\n| 1 | 2 |\n"
+	want := "```js`x\n| a   | b   |\n| --- | --- |\n| 1   | 2   |\n"
+	if got := FormatString(input); got != want {
+		t.Errorf("backtick info string treated as fence\n--- got ---\n%q\n--- want ---\n%q", got, want)
+	}
+
+	// A tilde fence's info string may contain backticks, so it still opens a
+	// fence and the table inside is left untouched.
+	tilde := "~~~js`x\n| a | b |\n|-|-|\n~~~\n"
+	if got := FormatString(tilde); got != tilde {
+		t.Errorf("tilde fence with backtick info not honored\n--- got ---\n%q\n--- want ---\n%q", got, tilde)
+	}
+}
+
+func TestFenceIndentation(t *testing.T) {
+	// Four-space indentation is indented-code content, not a fence, so the line
+	// does not open a fence and the table after it is formatted.
+	deep := "    ```\n| a | b |\n|-|-|\n| 1 | 2 |\n"
+	wantDeep := "    ```\n| a   | b   |\n| --- | --- |\n| 1   | 2   |\n"
+	if got := FormatString(deep); got != wantDeep {
+		t.Errorf("4-space indented fence not ignored\n--- got ---\n%q\n--- want ---\n%q", got, wantDeep)
+	}
+
+	// Up to three spaces still opens (and closes) a fence, so the table between
+	// the markers is left untouched.
+	shallow := "   ```\n| a | b |\n|-|-|\n   ```\n"
+	if got := FormatString(shallow); got != shallow {
+		t.Errorf("3-space indented fence not honored\n--- got ---\n%q\n--- want ---\n%q", got, shallow)
+	}
+}
+
 // TestFormatDirectory verifies recursive in-place formatting of *.md files,
 // leaving non-markdown files untouched.
 func TestFormatDirectory(t *testing.T) {

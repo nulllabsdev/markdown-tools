@@ -34,6 +34,7 @@ See `docs/go-table-aligner.md` for the sibling Go design.
   Cargo.toml          name = "markdown_tools", edition = "2021"
   Cargo.lock
   src/lib.rs          public API + core formatter
+  src/bin/rust-align  stdin/stdout and in-place CLI wrapper
   tests/fixtures.rs   integration tests over ../testdata
 ```
 
@@ -45,10 +46,11 @@ recursion — no `walkdir` dependency.
 
 - `pub fn format_str(input: &str) -> String` — pure, in-memory formatter; the
   primary test target.
-- `pub fn format_directory(root: impl AsRef<Path>) -> std::io::Result<()>` —
-  recurse with `std::fs::read_dir`, formatting every `*.md` file in place (read →
-  `format_str` → write back only when the content changes; `fs::write` on an
-  existing file keeps its permissions).
+- `pub fn format_directory(root: impl AsRef<Path>) -> std::io::Result<Vec<PathBuf>>`
+  — recurse with `std::fs::read_dir`, formatting every `*.md` file in place
+  (read → `format_str` → write back only when the content changes; `fs::write`
+  on an existing file keeps its permissions) and returning the changed paths in
+  walk order.
 
 ## Implementation notes (`src/lib.rs`) — mirrors `go/align.go`
 
@@ -59,13 +61,18 @@ counts the backslash + pipe as 2 with no special case. Parity risk is contained:
 any disagreement between `unicode-width` and `go-runewidth` would fail a fixture
 loudly, and the fixtures use only widely-agreed characters.
 
-**Line handling.** Newline is `\r\n` if present in the input, else `\n`. The
-trailing-newline state is recorded, CRLF normalised to LF for processing via
-`replace`/`split('\n')`, and both restored on output.
+**Line handling.** Input is split into logical lines while retaining each line's
+original terminator (`\n`, `\r\n`, or none for the final unterminated line).
+Formatted output reuses the original terminator for each emitted line, so mixed
+line endings and trailing-newline state are preserved exactly.
 
-**Main loop.** Walks logical lines tracking code-fence state. `fence_token`
-detects a boundary (≥3 leading `` ` `` or `~` after trimming); inside a fence,
-lines pass through verbatim. Outside a fence, a table starts where line *i* is a
+**Main loop.** Walks logical lines tracking code-fence state.
+`opening_fence_token` detects a leading run of at least three backticks or tildes
+and allows an info string (a backtick fence's info string may not contain a
+backtick); `is_closing_fence` requires the same marker, at least the opener's
+length, and only marker characters after trimming. Fences indented four or more
+columns are treated as indented-code content and ignored. Inside a fence, lines
+pass through verbatim. Outside a fence, a table starts where line *i* is a
 pipe row and line *i+1* is a valid separator row; the header, separator, and
 following pipe rows are collected, formatted, and emitted.
 
@@ -103,11 +110,11 @@ cargo build && cargo test && cargo fmt --check && cargo clippy --all-targets -- 
    assert the `*.md` files now equal their `.output` and the non-`.md` file is
    untouched.
 
-All eight fixtures pass, matching the Go results exactly: three-alignments,
-no-markers, cjk, emoji, empty-ragged, centered-single-char, escaped-pipe,
-code-fence-skip.
+The fixture suite covers shared table behavior plus focused regression tests for
+mixed line endings, idempotency, valid code-fence closing, and recursive
+directory formatting.
 
 ## Out of scope
 
-CLI binary (the spec is library-only), inline-code-span pipe parsing beyond `\|`,
-and tables without leading/trailing pipes.
+Inline-code-span pipe parsing beyond `\|`, and tables without leading/trailing
+pipes.
