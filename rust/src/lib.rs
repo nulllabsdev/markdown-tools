@@ -13,7 +13,9 @@ use std::path::{Path, PathBuf};
 
 use unicode_width::UnicodeWidthStr;
 
+mod align_graph;
 mod wrap;
+pub use align_graph::{align_graph_directory, align_graph_str};
 pub use wrap::{wrap_directory, wrap_str};
 
 /// The smallest column width the formatter will emit, so that every separator

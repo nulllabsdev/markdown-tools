@@ -13,5 +13,9 @@ path = "src/bin/rust-align.rs"
 name = "rust-wrap"
 path = "src/bin/rust-wrap.rs"
 
+[[bin]]
+name = "rust-align-graph"
+path = "src/bin/rust-align-graph.rs"
+
 [dependencies]
 unicode-width = "0.2"
