@@ -5,5 +5,9 @@ edition = "2021"
 description = "Tools for managing markdown formats, including aligning pipe-table columns"
 license = "MIT"
 
+[[bin]]
+name = "rust-align"
+path = "src/bin/rust-align.rs"
+
 [dependencies]
 unicode-width = "0.2"
