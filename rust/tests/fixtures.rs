@@ -131,7 +131,7 @@ fn format_directory_in_place() {
     let nested = scratch.join("nested");
     fs::create_dir_all(&nested).unwrap();
 
-    let md_fixtures = ["three-alignments", "cjk"];
+    let md_fixtures = ["three-alignments", "cjk", "ascii-flowchart"];
     for f in md_fixtures {
         let input = read(&dir.join(format!("{f}.input")));
         fs::write(scratch.join(format!("{f}.md")), input).unwrap();
@@ -145,9 +145,10 @@ fn format_directory_in_place() {
 
     let changed = format_directory(&scratch).unwrap();
 
-    // All three *.md fixtures differ from their formatted form; the .txt file
-    // must not be reported.
+    // Every *.md fixture differs from its formatted form; the .txt file must not
+    // be reported. Order matches the walker's sorted, depth-first traversal.
     let want_changed = vec![
+        scratch.join("ascii-flowchart.md"),
         scratch.join("cjk.md"),
         nested.join("emoji.md"),
         scratch.join("three-alignments.md"),
