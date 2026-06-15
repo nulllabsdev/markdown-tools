@@ -161,8 +161,10 @@ fn visit_path(path: &Path, changed: &mut Vec<PathBuf>) -> io::Result<()> {
 }
 
 fn visit_dir(dir: &Path, changed: &mut Vec<PathBuf>) -> io::Result<()> {
-    for entry in fs::read_dir(dir)? {
-        let entry = entry?;
+    let mut entries: Vec<_> = fs::read_dir(dir)?.collect::<io::Result<_>>()?;
+    entries.sort_by_key(|entry| entry.path());
+
+    for entry in entries {
         let path = entry.path();
         if entry.file_type()?.is_dir() {
             visit_dir(&path, changed)?;

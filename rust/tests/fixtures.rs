@@ -115,17 +115,15 @@ fn format_directory_in_place() {
     let untouched = "| a | b |\n| - | - |\n";
     fs::write(scratch.join("skip.txt"), untouched).unwrap();
 
-    let mut changed = format_directory(&scratch).unwrap();
-    changed.sort();
+    let changed = format_directory(&scratch).unwrap();
 
     // All three *.md fixtures differ from their formatted form; the .txt file
     // must not be reported.
-    let mut want_changed = vec![
-        scratch.join("three-alignments.md"),
+    let want_changed = vec![
         scratch.join("cjk.md"),
         nested.join("emoji.md"),
+        scratch.join("three-alignments.md"),
     ];
-    want_changed.sort();
     assert_eq!(changed, want_changed, "reported changed files mismatch");
 
     for f in md_fixtures {
