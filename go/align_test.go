@@ -113,7 +113,7 @@ func TestFenceIndentation(t *testing.T) {
 func TestFormatDirectory(t *testing.T) {
 	dir := t.TempDir()
 
-	mdFixtures := []string{"three-alignments", "cjk"}
+	mdFixtures := []string{"three-alignments", "cjk", "ascii-flowchart"}
 	for _, f := range mdFixtures {
 		in := readFile(t, filepath.Join("..", "testdata", f+".input"))
 		if err := os.WriteFile(filepath.Join(dir, f+".md"), []byte(in), 0o644); err != nil {
@@ -143,11 +143,12 @@ func TestFormatDirectory(t *testing.T) {
 		t.Fatalf("FormatDirectory: %v", err)
 	}
 
-	// All three *.md fixtures differ from their formatted form, so each must be
+	// Every *.md fixture differs from its formatted form, so each must be
 	// reported as changed; the .txt file must not appear.
 	wantChanged := map[string]bool{
 		filepath.Join(dir, "three-alignments.md"): true,
 		filepath.Join(dir, "cjk.md"):              true,
+		filepath.Join(dir, "ascii-flowchart.md"):  true,
 		filepath.Join(sub, "emoji.md"):            true,
 	}
 	if len(changed) != len(wantChanged) {
