@@ -1,5 +1,7 @@
-//! Aligns the columns of GitHub-style pipe tables in markdown so that they read
-//! cleanly as raw text. See `README.md` for the full specification.
+//! Markdown formatting tools. The aligner (`format_str`/`format_directory`)
+//! lines up the columns of GitHub-style pipe tables; the wrapper
+//! (`wrap_str`/`wrap_directory`) reflows prose paragraphs to a display width.
+//! See `README.md` for the full specification.
 //!
 //! This is the Rust counterpart of the Go `mdtable` package; both are verified
 //! against the same fixtures in `testdata/` to guarantee identical output.
@@ -10,6 +12,9 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use unicode_width::UnicodeWidthStr;
+
+mod wrap;
+pub use wrap::{wrap_directory, wrap_str};
 
 /// The smallest column width the formatter will emit, so that every separator
 /// form (e.g. `:-:`) stays valid even for one-character columns.
@@ -27,14 +32,14 @@ enum Align {
 }
 
 #[derive(Clone, Copy)]
-struct LogicalLine<'a> {
-    text: &'a str,
-    eol: &'a str,
+pub(crate) struct LogicalLine<'a> {
+    pub(crate) text: &'a str,
+    pub(crate) eol: &'a str,
 }
 
 /// Display width of `s`, measured with ambiguous-width characters treated as
 /// narrow (matching the Go implementation's `EastAsianWidth: false`).
-fn disp_width(s: &str) -> usize {
+pub(crate) fn disp_width(s: &str) -> usize {
     UnicodeWidthStr::width(s)
 }
 
@@ -108,7 +113,7 @@ pub fn format_str(input: &str) -> String {
     result
 }
 
-fn split_lines(input: &str) -> Vec<LogicalLine<'_>> {
+pub(crate) fn split_lines(input: &str) -> Vec<LogicalLine<'_>> {
     if input.is_empty() {
         return vec![LogicalLine { text: "", eol: "" }];
     }
@@ -190,7 +195,7 @@ fn format_path(path: &Path, changed: &mut Vec<PathBuf>) -> io::Result<()> {
     Ok(())
 }
 
-fn is_markdown(path: &Path) -> bool {
+pub(crate) fn is_markdown(path: &Path) -> bool {
     path.extension()
         .map(|ext| ext.eq_ignore_ascii_case("md"))
         .unwrap_or(false)
@@ -199,7 +204,7 @@ fn is_markdown(path: &Path) -> bool {
 /// Reports whether a line is indented four or more columns, which under
 /// CommonMark makes it indented-code content rather than a code fence. A leading
 /// tab counts as a full indent on its own.
-fn indented_too_far(line: &str) -> bool {
+pub(crate) fn indented_too_far(line: &str) -> bool {
     let bytes = line.as_bytes();
     let spaces = bytes.iter().take_while(|&&b| b == b' ').count();
     spaces >= 4 || bytes.get(spaces) == Some(&b'\t')
@@ -209,7 +214,7 @@ fn indented_too_far(line: &str) -> bool {
 /// fence byte and run length. Opening fences may include an info string after
 /// the marker run; a backtick fence's info string may not contain a backtick
 /// (otherwise inline code spans would be misread as fences).
-fn opening_fence_token(trimmed: &str) -> Option<(u8, usize)> {
+pub(crate) fn opening_fence_token(trimmed: &str) -> Option<(u8, usize)> {
     let bytes = trimmed.as_bytes();
     if bytes.len() < 3 {
         return None;
@@ -231,12 +236,12 @@ fn opening_fence_token(trimmed: &str) -> Option<(u8, usize)> {
 /// Reports whether a trimmed line closes the current fenced code block. Closing
 /// fences must contain only the opening fence byte and must be at least as long
 /// as the opening fence.
-fn is_closing_fence(trimmed: &str, marker: u8, min_len: usize) -> bool {
+pub(crate) fn is_closing_fence(trimmed: &str, marker: u8, min_len: usize) -> bool {
     trimmed.len() >= min_len && trimmed.bytes().all(|b| b == marker)
 }
 
 /// Reports whether a line's trimmed text starts and ends with `|`.
-fn is_pipe_row(line: &str) -> bool {
+pub(crate) fn is_pipe_row(line: &str) -> bool {
     let t = line.trim().as_bytes();
     t.len() >= 2 && t[0] == b'|' && t[t.len() - 1] == b'|'
 }
