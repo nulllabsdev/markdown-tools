@@ -1,6 +1,10 @@
 # Built CLI binaries (produced by `make`)
 /bin/
 
+# Stray binaries from `go build ./cmd/...` without -o
+/go/go-align
+/go/go-wrap
+
 # Rust build artifacts
 /target/
 /rust/target/
