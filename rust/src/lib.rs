@@ -145,25 +145,41 @@ fn line_texts<'a>(lines: &[LogicalLine<'a>]) -> Vec<&'a str> {
 /// rewrote, in walk order.
 pub fn format_directory(root: impl AsRef<Path>) -> io::Result<Vec<PathBuf>> {
     let mut changed = Vec::new();
-    visit(root.as_ref(), &mut changed)?;
+    visit_path(root.as_ref(), &mut changed)?;
     Ok(changed)
 }
 
-fn visit(dir: &Path, changed: &mut Vec<PathBuf>) -> io::Result<()> {
+fn visit_path(path: &Path, changed: &mut Vec<PathBuf>) -> io::Result<()> {
+    let metadata = fs::metadata(path)?;
+    if metadata.is_dir() {
+        return visit_dir(path, changed);
+    }
+    if metadata.is_file() && is_markdown(path) {
+        format_path(path, changed)?;
+    }
+    Ok(())
+}
+
+fn visit_dir(dir: &Path, changed: &mut Vec<PathBuf>) -> io::Result<()> {
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
         if entry.file_type()?.is_dir() {
-            visit(&path, changed)?;
+            visit_dir(&path, changed)?;
         } else if is_markdown(&path) {
-            let data = fs::read_to_string(&path)?;
-            let formatted = format_str(&data);
-            if formatted != data {
-                // Writing to the existing file keeps its permissions.
-                fs::write(&path, formatted)?;
-                changed.push(path);
-            }
+            format_path(&path, changed)?;
         }
+    }
+    Ok(())
+}
+
+fn format_path(path: &Path, changed: &mut Vec<PathBuf>) -> io::Result<()> {
+    let data = fs::read_to_string(path)?;
+    let formatted = format_str(&data);
+    if formatted != data {
+        // Writing to the existing file keeps its permissions.
+        fs::write(path, formatted)?;
+        changed.push(path.to_path_buf());
     }
     Ok(())
 }

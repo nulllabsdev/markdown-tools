@@ -74,6 +74,25 @@ fn code_fence_close_requires_only_fence_markers() {
 }
 
 #[test]
+fn format_directory_accepts_markdown_file_root() {
+    let dir = std::env::temp_dir().join(format!(
+        "mdtools-rust-file-root-test-{}",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+
+    let path = dir.join("single.md");
+    fs::write(&path, read(&testdata_dir().join("emoji.input"))).unwrap();
+
+    let changed = format_directory(&path).unwrap();
+    assert_eq!(changed, vec![path.clone()]);
+    assert_eq!(read(&path), read(&testdata_dir().join("emoji.output")));
+
+    fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn format_directory_in_place() {
     let dir = testdata_dir();
 
