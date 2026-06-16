@@ -203,6 +203,16 @@ make gomd             # Go CLI
 make rustmd           # Rust CLI
 ```
 
+Version output:
+
+```
+$ bin/gomd -v
+v0.1.0
+
+$ bin/rustmd -v
+v0.1.0
+```
+
 Both binaries expose the same subcommands:
 
 - `align` — table aligner
@@ -218,6 +228,7 @@ Interface:
   recursively for `*.md` files; a file is rewritten only if its content changes.
   The full path of every file that changed is printed to stdout, one per line.
 - `wrap` and `all` accept `-n N` to set the wrap width (default 80).
+- `-v` prints the binary version and exits.
 - Missing or unknown subcommands print usage to stderr and exit with code 1.
 - For directory inputs, `all` prints the sorted, deduplicated union of changed
   paths across the three passes.
@@ -252,6 +263,17 @@ Both implementations are verified against the same `*.input` / `*.output`
 fixtures so their output is provably identical. Each test reads an `.input`
 file, processes it, and asserts the result equals the matching `.output` file
 byte-for-byte.
+
+## Releases
+
+- Release versions are annotated git tags in the form `vX.Y.Z` or
+  `vX.Y.Z-prerelease`.
+- Non-tag builds report `git describe --tags --dirty --always --match 'v*'`.
+- `rust/Cargo.toml` mirrors the tagged version without the leading `v`.
+- `CHANGELOG.md` is manually curated and keeps an `Unreleased` section at the
+  top.
+- `scripts/release.sh vX.Y.Z` validates the changelog, syncs Rust package
+  metadata, creates a release commit when needed, and creates the annotated tag.
 
 ### Public API
 

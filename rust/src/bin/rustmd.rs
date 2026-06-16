@@ -6,6 +6,7 @@ use std::path::Path;
 use std::process;
 
 const DEFAULT_WIDTH: usize = 80;
+const VERSION: &str = env!("MARKDOWN_TOOLS_VERSION");
 
 fn main() {
     if let Err(err) = run(env::args().skip(1), &mut io::stdin(), &mut io::stdout()) {
@@ -20,6 +21,10 @@ fn run(
     stdout: &mut impl Write,
 ) -> Result<(), String> {
     let args: Vec<String> = args.collect();
+    if args.len() == 1 && args[0] == "-v" {
+        writeln!(stdout, "{VERSION}").map_err(|e| e.to_string())?;
+        return Ok(());
+    }
     let Some((subcommand, rest)) = args.split_first() else {
         return Err(usage());
     };
@@ -221,6 +226,19 @@ mod tests {
         )
         .expect_err("expected error");
         assert!(err.contains("usage: rustmd"));
+    }
+
+    #[test]
+    fn version_flag_prints_version() {
+        let mut stdout = Vec::new();
+        run(
+            ["-v".to_string()].into_iter(),
+            &mut Cursor::new(""),
+            &mut stdout,
+        )
+        .unwrap();
+        let got = String::from_utf8(stdout).unwrap();
+        assert_eq!(got, format!("{VERSION}\n"));
     }
 
     #[test]

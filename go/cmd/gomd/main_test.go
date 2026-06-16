@@ -18,6 +18,24 @@ func TestRunUnknownSubcommand(t *testing.T) {
 	}
 }
 
+func TestRunVersion(t *testing.T) {
+	orig := version
+	version = "v1.2.3"
+	t.Cleanup(func() { version = orig })
+
+	var out, err bytes.Buffer
+	code := run([]string{"-v"}, bytes.NewBufferString(""), &out, &err)
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, err.String())
+	}
+	if got := out.String(); got != "v1.2.3\n" {
+		t.Fatalf("stdout = %q, want %q", got, "v1.2.3\n")
+	}
+	if err.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", err.String())
+	}
+}
+
 func TestRunAllStdin(t *testing.T) {
 	input := "| a | bb |\n|---|---|\n| 1 | 2 |\n\nalpha beta gamma delta epsilon\n"
 	var out, err bytes.Buffer

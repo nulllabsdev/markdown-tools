@@ -12,11 +12,17 @@ import (
 
 const defaultWidth = 80
 
+var version = "dev"
+
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
 }
 
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	if len(args) == 1 && args[0] == "-v" {
+		fmt.Fprintln(stdout, version)
+		return 0
+	}
 	if len(args) == 0 {
 		printUsage(stderr)
 		return 1
