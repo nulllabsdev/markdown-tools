@@ -1,6 +1,23 @@
 # markdown-tools
 Set of tools to help with managing markdown formats
 
+There is one binary per language — `gomd` (Go) and `rustmd` (Rust) — with a
+subcommand per tool. With no path it reads stdin and writes stdout; given paths
+it rewrites each in place (directories are walked recursively for `*.md`) and
+prints every changed file path. `wrap` and `all` accept `-n N` (default 80).
+
+```
+gomd align  README.md          # align markdown pipe tables
+gomd wrap   -n 100 README.md   # reflow prose to a width (default 80)
+gomd graph  README.md          # center ASCII flowcharts in ```text blocks
+gomd all    README.md          # run align, then wrap, then graph
+
+cat README.md | gomd align     # no path → read stdin, write stdout
+```
+
+`rustmd` takes the exact same subcommands and produces byte-identical output
+(e.g. `rustmd wrap -n 100 README.md`).
+
 ## Align columns in markdown tables
 
 Aligns the columns of GitHub-style pipe tables so they are readable in raw
@@ -10,7 +27,7 @@ cell, with one space of padding around every cell and separator.
 ### Behaviour
 
 - **Form:** a library exposing a pure core plus a directory walker (see API
-  below), and a thin CLI for each language (`go-align`, `rust-align`).
+  below), and a thin CLI for each language (`gomd`, `rustmd` via `align`).
 - **Scope:** processes a directory and all its subfolders, limited to `*.md`
   files, editing each file **in place**. Original line endings (LF vs CRLF) and
   trailing-newline state are preserved.
@@ -141,10 +158,10 @@ Known limitations: prose is normalized to column 0 and trailing whitespace is
 trimmed; two-space "hard breaks" inside a paragraph are not preserved.
 
 ```
-$ bin/go-wrap README.md
+$ bin/gomd wrap README.md
 README.md
 
-$ bin/rust-wrap -n 100 docs/
+$ bin/rustmd wrap -n 100 docs/
 docs/guide.md
 ```
 
@@ -172,7 +189,7 @@ Known limitation: a box whose label exceeds 30 display columns leaves its whole
 graph block untouched (labels are centered, never re-wrapped).
 
 ```
-$ bin/go-align-graph README.md
+$ bin/gomd graph README.md
 README.md
 ```
 
@@ -181,42 +198,54 @@ README.md
 Build the binaries with `make` (output lands in `bin/`):
 
 ```
-make                  # build all six binaries
-make go-align         # aligner (Go)        make rust-align       # aligner (Rust)
-make go-wrap          # wrapper (Go)        make rust-wrap        # wrapper (Rust)
-make go-align-graph   # graph (Go)          make rust-align-graph # graph (Rust)
+make                  # build both binaries
+make gomd             # Go CLI
+make rustmd           # Rust CLI
 ```
 
-There are three tools — `*-align` (table aligner), `*-wrap` (prose wrapper), and
-`*-align-graph` (ASCII-graph aligner) — each in a Go and a Rust build. They share
-the same interface:
+Both binaries expose the same subcommands:
 
-- **No arguments** — read markdown from stdin, write the result to stdout.
+- `align` — table aligner
+- `wrap` — prose wrapper
+- `graph` — ASCII-graph aligner
+- `all` — run `align`, then `wrap`, then `graph`
+
+Interface:
+
+- **No paths after the subcommand** — read markdown from stdin, write the result
+  to stdout.
 - **One or more paths** — process each in place. A directory is walked
   recursively for `*.md` files; a file is rewritten only if its content changes.
   The full path of every file that changed is printed to stdout, one per line.
-- The wrapper additionally accepts `-n N` to set the wrap width (default 80).
+- `wrap` and `all` accept `-n N` to set the wrap width (default 80).
+- Missing or unknown subcommands print usage to stderr and exit with code 1.
+- For directory inputs, `all` prints the sorted, deduplicated union of changed
+  paths across the three passes.
 
 ```
-$ bin/go-align docs/
+$ bin/gomd align docs/
 docs/guide.md
 docs/api/reference.md
 
-$ cat table.md | bin/rust-align        # stdin → stdout, nothing else printed
+$ cat table.md | bin/rustmd align      # stdin → stdout, nothing else printed
 
-$ bin/go-wrap -n 100 docs/             # wrap prose to 100 columns in place
+$ bin/gomd wrap -n 100 docs/           # wrap prose to 100 columns in place
+docs/guide.md
+
+$ bin/rustmd all -n 100 docs/          # align tables, wrap prose, align graphs
+docs/api/reference.md
 docs/guide.md
 ```
 
 ## Project layout
 
 ```
-/rust       Rust crate `markdown_tools` (bins rust-align, rust-wrap, rust-align-graph)
-/go         Go package `mdtable` (cmds go-align, go-wrap, go-align-graph, Go 1.22+)
+/rust       Rust crate `markdown_tools` (bin rustmd; modules common/table/wrap/align_graph)
+/go         Go package `mdtable` (cmd gomd, Go 1.22+)
 /testdata        Shared aligner fixtures: `name.input` / `name.output`
 /testdata/wrap   Shared wrapper fixtures (run at width 80)
 /testdata/graph  Shared ASCII-graph fixtures
-/Makefile   Builds all six CLIs into /bin
+/Makefile   Builds both CLIs into /bin
 ```
 
 Both implementations are verified against the same `*.input` / `*.output`

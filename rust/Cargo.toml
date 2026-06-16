@@ -6,16 +6,8 @@ description = "Tools for managing markdown formats, including aligning pipe-tabl
 license = "MIT"
 
 [[bin]]
-name = "rust-align"
-path = "src/bin/rust-align.rs"
-
-[[bin]]
-name = "rust-wrap"
-path = "src/bin/rust-wrap.rs"
-
-[[bin]]
-name = "rust-align-graph"
-path = "src/bin/rust-align-graph.rs"
+name = "rustmd"
+path = "src/bin/rustmd.rs"
 
 [dependencies]
 unicode-width = "0.2"

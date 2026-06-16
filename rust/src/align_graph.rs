@@ -9,7 +9,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::{
+use crate::common::{
     disp_width, indented_too_far, is_closing_fence, is_markdown, opening_fence_token, split_lines,
     LogicalLine,
 };

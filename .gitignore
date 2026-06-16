@@ -2,9 +2,7 @@
 /bin/
 
 # Stray binaries from `go build ./cmd/...` without -o
-/go/go-align
-/go/go-wrap
-/go/go-align-graph
+/go/gomd
 
 # Rust build artifacts
 /target/
