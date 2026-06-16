@@ -1,6 +1,23 @@
 # markdown-tools
 Set of tools to help with managing markdown formats
 
+There is one binary per language — `gomd` (Go) and `rustmd` (Rust) — with a
+subcommand per tool. With no path it reads stdin and writes stdout; given paths
+it rewrites each in place (directories are walked recursively for `*.md`) and
+prints every changed file path. `wrap` and `all` accept `-n N` (default 80).
+
+```
+gomd align  README.md          # align markdown pipe tables
+gomd wrap   -n 100 README.md   # reflow prose to a width (default 80)
+gomd graph  README.md          # center ASCII flowcharts in ```text blocks
+gomd all    README.md          # run align, then wrap, then graph
+
+cat README.md | gomd align     # no path → read stdin, write stdout
+```
+
+`rustmd` takes the exact same subcommands and produces byte-identical output
+(e.g. `rustmd wrap -n 100 README.md`).
+
 ## Align columns in markdown tables
 
 Aligns the columns of GitHub-style pipe tables so they are readable in raw
