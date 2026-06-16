@@ -208,9 +208,11 @@ Version output:
 ```
 $ bin/gomd -v
 v0.1.0
+build v0.1.0-3-gabc1234
 
 $ bin/rustmd -v
 v0.1.0
+build v0.1.0-3-gabc1234
 ```
 
 Both binaries expose the same subcommands:
@@ -228,7 +230,8 @@ Interface:
   recursively for `*.md` files; a file is rewritten only if its content changes.
   The full path of every file that changed is printed to stdout, one per line.
 - `wrap` and `all` accept `-n N` to set the wrap width (default 80).
-- `-v` prints the binary version and exits.
+- `-v` prints the current semantic version on the first line; non-tag builds
+  additionally print the git-derived build identifier on the second line.
 - Missing or unknown subcommands print usage to stderr and exit with code 1.
 - For directory inputs, `all` prints the sorted, deduplicated union of changed
   paths across the three passes.

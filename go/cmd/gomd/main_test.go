@@ -19,31 +19,52 @@ func TestRunUnknownSubcommand(t *testing.T) {
 }
 
 func TestRunVersion(t *testing.T) {
-	orig := version
-	version = "v1.2.3"
-	t.Cleanup(func() { version = orig })
+	origBuild := versionBuild
+	versionBuild = "v1.2.3-4-gabc1234"
+	t.Cleanup(func() {
+		versionBuild = origBuild
+	})
 
 	var out, err bytes.Buffer
 	code := run([]string{"-v"}, bytes.NewBufferString(""), &out, &err)
 	if code != 0 {
 		t.Fatalf("code = %d, stderr = %q", code, err.String())
 	}
-	if got := out.String(); got != "v1.2.3\n" {
-		t.Fatalf("stdout = %q, want %q", got, "v1.2.3\n")
+	if got := out.String(); got != "build v1.2.3-4-gabc1234\n\n" {
+		t.Fatalf("stdout = %q, want %q", got, "build v1.2.3-4-gabc1234\n\n")
 	}
 	if err.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", err.String())
 	}
 }
 
+func TestRunVersionExactTagPrintsSingleLine(t *testing.T) {
+	origBuild := versionBuild
+	versionBuild = "v1.2.3"
+	t.Cleanup(func() { versionBuild = origBuild })
+
+	var out bytes.Buffer
+	code := run([]string{"-v"}, bytes.NewBufferString(""), &out, &bytes.Buffer{})
+	if code != 0 {
+		t.Fatalf("code = %d", code)
+	}
+	if got := out.String(); got != "build v1.2.3\n\n" {
+		t.Fatalf("stdout = %q, want %q", got, "build v1.2.3\n\n")
+	}
+}
+
 func TestRunAllStdin(t *testing.T) {
+	origBuild := versionBuild
+	versionBuild = "v1.2.3-4-gabc1234"
+	t.Cleanup(func() { versionBuild = origBuild })
+
 	input := "| a | bb |\n|---|---|\n| 1 | 2 |\n\nalpha beta gamma delta epsilon\n"
 	var out, err bytes.Buffer
 	code := run([]string{"all", "-n", "12"}, bytes.NewBufferString(input), &out, &err)
 	if code != 0 {
 		t.Fatalf("code = %d, stderr = %q", code, err.String())
 	}
-	want := "| a   | bb  |\n| --- | --- |\n| 1   | 2   |\n\nalpha beta\ngamma delta\nepsilon\n"
+	want := "build v1.2.3-4-gabc1234\n| a   | bb  |\n| --- | --- |\n| 1   | 2   |\n\nalpha beta\ngamma delta\nepsilon\n\n"
 	if got := out.String(); got != want {
 		t.Fatalf("stdout mismatch\n--- got ---\n%q\n--- want ---\n%q", got, want)
 	}
@@ -58,11 +79,15 @@ func TestRunAllDirectoryReportsSortedUniquePaths(t *testing.T) {
 	}
 
 	var out, err bytes.Buffer
+	origBuild := versionBuild
+	versionBuild = "v1.2.3-4-gabc1234"
+	t.Cleanup(func() { versionBuild = origBuild })
+
 	code := run([]string{"all", dir}, bytes.NewBufferString(""), &out, &err)
 	if code != 0 {
 		t.Fatalf("code = %d, stderr = %q", code, err.String())
 	}
-	want := file + "\n"
+	want := "build v1.2.3-4-gabc1234\n" + file + "\n\n"
 	if got := out.String(); got != want {
 		t.Fatalf("stdout = %q, want %q", got, want)
 	}

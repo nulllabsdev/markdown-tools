@@ -6,7 +6,7 @@ use std::path::Path;
 use std::process;
 
 const DEFAULT_WIDTH: usize = 80;
-const VERSION: &str = env!("MARKDOWN_TOOLS_VERSION");
+const VERSION_BUILD: &str = env!("MARKDOWN_TOOLS_VERSION");
 
 fn main() {
     if let Err(err) = run(env::args().skip(1), &mut io::stdin(), &mut io::stdout()) {
@@ -22,26 +22,38 @@ fn run(
 ) -> Result<(), String> {
     let args: Vec<String> = args.collect();
     if args.len() == 1 && args[0] == "-v" {
-        writeln!(stdout, "{VERSION}").map_err(|e| e.to_string())?;
+        write_version(stdout).map_err(|e| e.to_string())?;
+        writeln!(stdout).map_err(|e| e.to_string())?;
         return Ok(());
     }
     let Some((subcommand, rest)) = args.split_first() else {
         return Err(usage());
     };
 
-    match subcommand.as_str() {
-        "align" => run_align(rest, stdin, stdout).map_err(|e| e.to_string()),
+    let mut body = Vec::new();
+    let result = match subcommand.as_str() {
+        "align" => run_align(rest, stdin, &mut body).map_err(|e| e.to_string()),
         "wrap" => {
             let (width, paths) = parse_width_args(rest)?;
-            run_wrap(width, &paths, stdin, stdout).map_err(|e| e.to_string())
+            run_wrap(width, &paths, stdin, &mut body).map_err(|e| e.to_string())
         }
-        "graph" => run_graph(rest, stdin, stdout).map_err(|e| e.to_string()),
+        "graph" => run_graph(rest, stdin, &mut body).map_err(|e| e.to_string()),
         "all" => {
             let (width, paths) = parse_width_args(rest)?;
-            run_all(width, &paths, stdin, stdout).map_err(|e| e.to_string())
+            run_all(width, &paths, stdin, &mut body).map_err(|e| e.to_string())
         }
         _ => Err(usage()),
-    }
+    };
+
+    result?;
+    write_version(stdout).map_err(|e| e.to_string())?;
+    stdout.write_all(&body).map_err(|e| e.to_string())?;
+    writeln!(stdout).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn write_version(stdout: &mut impl Write) -> io::Result<()> {
+    writeln!(stdout, "build {VERSION_BUILD}")
 }
 
 fn usage() -> String {
@@ -238,7 +250,7 @@ mod tests {
         )
         .unwrap();
         let got = String::from_utf8(stdout).unwrap();
-        assert_eq!(got, format!("{VERSION}\n"));
+        assert_eq!(got, format!("build {VERSION_BUILD}\n\n"));
     }
 
     #[test]
@@ -252,8 +264,10 @@ mod tests {
         )
         .unwrap();
         let got = String::from_utf8(stdout).unwrap();
-        let want =
-            "| a   | bb  |\n| --- | --- |\n| 1   | 2   |\n\nalpha beta\ngamma delta\nepsilon\n";
+        let want = format!(
+            "build {VERSION_BUILD}\n{}",
+            "| a   | bb  |\n| --- | --- |\n| 1   | 2   |\n\nalpha beta\ngamma delta\nepsilon\n\n",
+        );
         assert_eq!(got, want);
     }
 }
