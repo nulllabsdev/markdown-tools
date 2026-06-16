@@ -137,9 +137,9 @@ written; only the one below it is formatted.
 ## Wrap markdown prose
 
 Reflows prose paragraphs so they fit within a display width (default 80 columns,
-`-n N` to override), making raw markdown comfortable to read and review. Wrapping
-is greedy and never splits a word, so long tokens such as URLs keep their own
-line.
+`-n N` to override), making raw markdown comfortable to read and review.
+Wrapping is greedy and never splits a word, so long tokens such as URLs keep
+their own line.
 
 ### Behaviour
 
@@ -157,6 +157,18 @@ line.
 Known limitations: prose is normalized to column 0 and trailing whitespace is
 trimmed; two-space "hard breaks" inside a paragraph are not preserved.
 
+Examples:
+
+```md
+and this project follows
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+```
+
+```md
+ - Successful `gomd` and `rustmd` commands now prepend a `build ...` line before
+   normal stdout and keep a trailing blank line.
+```
+
 ```
 $ bin/gomd wrap README.md
 README.md
@@ -167,8 +179,8 @@ docs/guide.md
 
 ## Align ASCII graphs
 
-Re-renders ASCII flowcharts inside fenced ` ```text ` code blocks to a canonical,
-centered form so they read cleanly in raw markdown.
+Re-renders ASCII flowcharts inside fenced ` ```text ` code blocks to a
+canonical, centered form so they read cleanly in raw markdown.
 
 ### Behaviour
 
@@ -203,6 +215,16 @@ make gomd             # Go CLI
 make rustmd           # Rust CLI
 ```
 
+Version output:
+
+```
+$ bin/gomd -v
+build v0.1.0-3-gabc1234
+
+$ bin/rustmd -v
+build v0.1.0-3-gabc1234
+```
+
 Both binaries expose the same subcommands:
 
 - `align` — table aligner
@@ -218,21 +240,27 @@ Interface:
   recursively for `*.md` files; a file is rewritten only if its content changes.
   The full path of every file that changed is printed to stdout, one per line.
 - `wrap` and `all` accept `-n N` to set the wrap width (default 80).
+- Every successful command prints `build <identifier>` first, then the normal
+  content or changed-path output, and ends with an empty line.
+- `-v` prints that same `build <identifier>` line and exits.
 - Missing or unknown subcommands print usage to stderr and exit with code 1.
 - For directory inputs, `all` prints the sorted, deduplicated union of changed
   paths across the three passes.
 
 ```
 $ bin/gomd align docs/
+build v0.1.0-3-gabc1234
 docs/guide.md
 docs/api/reference.md
 
-$ cat table.md | bin/rustmd align      # stdin → stdout, nothing else printed
+$ cat table.md | bin/rustmd align      # stdin → stdout after the build header
 
 $ bin/gomd wrap -n 100 docs/           # wrap prose to 100 columns in place
+build v0.1.0-3-gabc1234
 docs/guide.md
 
 $ bin/rustmd all -n 100 docs/          # align tables, wrap prose, align graphs
+build v0.1.0-3-gabc1234
 docs/api/reference.md
 docs/guide.md
 ```
@@ -252,6 +280,19 @@ Both implementations are verified against the same `*.input` / `*.output`
 fixtures so their output is provably identical. Each test reads an `.input`
 file, processes it, and asserts the result equals the matching `.output` file
 byte-for-byte.
+
+## Releases
+
+- Release versions are annotated git tags in the form `vX.Y.Z` or
+  `vX.Y.Z-prerelease`.
+- The printed identifier is always `build <value>`.
+- Tagged release builds print `build vX.Y.Z`.
+- Non-tag builds print `build <git describe --tags --dirty --always --match 'v*'>`.
+- `rust/Cargo.toml` mirrors the tagged version without the leading `v`.
+- `CHANGELOG.md` is manually curated and keeps an `Unreleased` section at the
+  top.
+- `scripts/release.sh vX.Y.Z` validates the changelog, syncs Rust package
+  metadata, creates a release commit when needed, and creates the annotated tag.
 
 ### Public API
 

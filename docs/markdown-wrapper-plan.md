@@ -10,11 +10,11 @@ place, and directory paths are traversed recursively for `*.md` files.
 ## README changes
 
 - Add a `Wrap markdown prose` section describing the tool and its behavior.
-- Document CLI examples for the future binaries:
-  - `bin/go-wrap README.md`
-  - `bin/rust-wrap -n 100 docs/`
-- Extend the build and project-layout sections to mention `go-wrap` and
-  `rust-wrap` alongside the existing aligner binaries.
+- Document CLI examples for the future subcommands:
+  - `bin/gomd wrap README.md`
+  - `bin/rustmd wrap -n 100 docs/`
+- Extend the build and project-layout sections to mention `gomd` and `rustmd`
+  subcommands alongside the existing aligner behavior.
 - Describe that the wrapper will follow the same Go/Rust parity model and shared
   fixture approach used by the table aligner.
 
@@ -32,8 +32,8 @@ place, and directory paths are traversed recursively for `*.md` files.
 
 ## Future interface
 
-- CLI names: `go-wrap` and `rust-wrap`.
-- CLI shape: `[-n NUMBER] <path> [path...]`.
+- CLI entrypoints: `gomd wrap` and `rustmd wrap`.
+- CLI shape: `<binary> wrap [-n NUMBER] [path...]`.
 - Future library shape should mirror the aligner:
   - a pure string wrapper function for in-memory formatting
   - a path/directory formatter that rewrites changed files and returns changed

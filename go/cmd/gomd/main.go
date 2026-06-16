@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -12,26 +13,34 @@ import (
 
 const defaultWidth = 80
 
+var versionBuild = "dev"
+
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
 }
 
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	if len(args) == 1 && args[0] == "-v" {
+		writeVersion(stdout)
+		fmt.Fprintln(stdout)
+		return 0
+	}
 	if len(args) == 0 {
 		printUsage(stderr)
 		return 1
 	}
 
+	var body bytes.Buffer
 	var err error
 	switch args[0] {
 	case "align":
-		err = runAlign(args[1:], stdin, stdout)
+		err = runAlign(args[1:], stdin, &body)
 	case "wrap":
-		err = runWrap(args[1:], stdin, stdout)
+		err = runWrap(args[1:], stdin, &body)
 	case "graph":
-		err = runGraph(args[1:], stdin, stdout)
+		err = runGraph(args[1:], stdin, &body)
 	case "all":
-		err = runAll(args[1:], stdin, stdout)
+		err = runAll(args[1:], stdin, &body)
 	default:
 		printUsage(stderr)
 		return 1
@@ -40,7 +49,19 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "gomd:", err)
 		return 1
 	}
+	writeVersion(stdout)
+	if body.Len() > 0 {
+		if _, err := io.Copy(stdout, &body); err != nil {
+			fmt.Fprintln(stderr, "gomd:", err)
+			return 1
+		}
+	}
+	fmt.Fprintln(stdout)
 	return 0
+}
+
+func writeVersion(w io.Writer) {
+	fmt.Fprintf(w, "build %s\n", versionBuild)
 }
 
 func printUsage(w io.Writer) {

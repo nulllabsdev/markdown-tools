@@ -7,6 +7,8 @@
 #   make clean      # remove built binaries
 
 BIN_DIR := bin
+VERSION ?= $(shell git describe --tags --dirty --always --match 'v*' 2>/dev/null || printf 'dev')
+RUST_VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' rust/Cargo.toml | head -n 1)
 
 .PHONY: all gomd rustmd test test-go test-rust clean
 
@@ -24,7 +26,7 @@ test-rust:
 
 gomd:
 	mkdir -p $(BIN_DIR)
-	cd go && go build -o ../$(BIN_DIR)/gomd ./cmd/gomd
+	cd go && go build -ldflags "-X main.versionBase=v$(RUST_VERSION) -X main.versionBuild=$(VERSION)" -o ../$(BIN_DIR)/gomd ./cmd/gomd
 
 rustmd:
 	cd rust && cargo build --release --bin rustmd

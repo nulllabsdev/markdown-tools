@@ -30,11 +30,12 @@ tests, Makefile targets, or README changes.
 
 ## Future interface
 
-- CLI binaries:
-  - `go-align-graph`
-  - `rust-align-graph`
+- CLI entrypoints:
+  - `gomd graph`
+  - `rustmd graph`
 - CLI behavior should match the existing markdown tools:
-  - no arguments: read markdown from stdin and write aligned markdown to stdout
+  - no path arguments after `graph`: read markdown from stdin and write aligned
+    markdown to stdout
   - one or more file paths: rewrite changed files in place
   - directory paths: recurse through `*.md` files
   - print each changed file path, one per line
@@ -58,7 +59,7 @@ Centered two-box row:
 ```text
        +------------------------------+  +------------------------------+
        |       Discover sitemap       |  |       Discover catalog       |
-       |         files and URLs       |  |         leaves and URLs      |
+       |        files and URLs        |  |       leaves and URLs        |
        +------------------------------+  +------------------------------+
 ```
 

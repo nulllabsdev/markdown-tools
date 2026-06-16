@@ -31,10 +31,18 @@ func WrapString(s string, width int) string {
 	var fenceMarker byte
 	var fenceLen int
 	inFrontMatter := false
+	inListContinuation := false
 
 	for i := 0; i < len(lines); i++ {
 		line := lines[i]
 		trimmed := strings.TrimSpace(line.text)
+
+		if trimmed == "" {
+			flush()
+			out = append(out, line)
+			inListContinuation = false
+			continue
+		}
 
 		// YAML front matter: a leading `---` on the very first line opens a block
 		// that passes through verbatim until its closing `---`/`...`.
@@ -79,8 +87,22 @@ func WrapString(s string, width int) string {
 			out = append(out, para...)
 			para = para[:0]
 			out = append(out, line)
+			inListContinuation = false
 			continue
 		}
+
+		if isListItem(line.text) {
+			flush()
+			out = append(out, line)
+			inListContinuation = true
+			continue
+		}
+		if inListContinuation && isIndentedListContinuation(line.text) {
+			flush()
+			out = append(out, line)
+			continue
+		}
+		inListContinuation = false
 
 		if isProse(line.text) {
 			para = append(para, line)
@@ -140,10 +162,7 @@ func WrapDirectory(root string, width int) ([]string, error) {
 // reuse the paragraph's first source eol; the final line keeps the paragraph's
 // last source eol so trailing-newline and CRLF state survive.
 func wrapParagraph(para []logicalLine, width int) []logicalLine {
-	var words []string
-	for _, line := range para {
-		words = append(words, strings.Fields(line.text)...)
-	}
+	words := paragraphTokens(para)
 	if len(words) == 0 {
 		return para
 	}
@@ -157,9 +176,9 @@ func wrapParagraph(para []logicalLine, width int) []logicalLine {
 	} else {
 		cur := words[0]
 		curW := dispWidth(cur)
-		for _, w := range words[1:] {
+		for i, w := range words[1:] {
 			ww := dispWidth(w)
-			if curW+1+ww <= width {
+			if curW+1+ww <= width || (i == len(words[1:])-1 && isTrailingMarkdownLinkToken(w)) {
 				cur += " " + w
 				curW += 1 + ww
 			} else {
@@ -181,6 +200,84 @@ func wrapParagraph(para []logicalLine, width int) []logicalLine {
 	return wrapped
 }
 
+func paragraphTokens(para []logicalLine) []string {
+	var b strings.Builder
+	for i, line := range para {
+		if i > 0 {
+			b.WriteByte(' ')
+		}
+		b.WriteString(strings.TrimSpace(line.text))
+	}
+	return tokenizeParagraph(b.String())
+}
+
+func tokenizeParagraph(s string) []string {
+	var tokens []string
+	for i := 0; i < len(s); {
+		for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
+			i++
+		}
+		if i >= len(s) {
+			break
+		}
+		start := i
+		for i < len(s) && s[i] != ' ' && s[i] != '\t' {
+			if s[i] == '[' {
+				if end, ok := markdownLinkEnd(s, i); ok {
+					i = end
+					continue
+				}
+			}
+			i++
+		}
+		tokens = append(tokens, s[start:i])
+	}
+	return tokens
+}
+
+func markdownLinkEnd(s string, start int) (int, bool) {
+	i := start + 1
+	for i < len(s) && s[i] != ']' {
+		i++
+	}
+	if i >= len(s)-1 || s[i+1] != '(' {
+		return 0, false
+	}
+	i += 2
+	depth := 1
+	for i < len(s) {
+		switch s[i] {
+		case '(':
+			depth++
+		case ')':
+			depth--
+			if depth == 0 {
+				return i + 1, true
+			}
+		}
+		i++
+	}
+	return 0, false
+}
+
+func isTrailingMarkdownLinkToken(token string) bool {
+	if !strings.HasPrefix(token, "[") {
+		return false
+	}
+	end, ok := markdownLinkEnd(token, 0)
+	if !ok {
+		return false
+	}
+	for i := end; i < len(token); i++ {
+		switch token[i] {
+		case '.', ',', ';', ':', '!', '?':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 // isProse reports whether a line is ordinary paragraph text — i.e. it has
 // content and is none of the block constructs that must pass through untouched.
 // Fenced code, indented code, and front matter are handled by the caller's state
@@ -197,6 +294,10 @@ func isProse(line string) bool {
 		return false
 	}
 	return true
+}
+
+func isIndentedListContinuation(line string) bool {
+	return len(line) > 0 && line[0] == ' ' && isProse(line)
 }
 
 // leadingSpaces returns the count of leading ASCII spaces, capped at the 4 that

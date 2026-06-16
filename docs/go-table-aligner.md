@@ -35,7 +35,7 @@ the same fixtures, guaranteeing byte-for-byte parity between the two.
   go.sum
   align.go        package mdtable — public API + core formatter
   align_test.go   fixture-driven + idempotency + FormatDirectory tests
-  cmd/go-align    stdin/stdout and in-place CLI wrapper
+  cmd/gomd        single CLI wrapper (`align`, `wrap`, `graph`, `all`)
 ```
 
 Dependency: `github.com/mattn/go-runewidth` for display width. Tests read the
@@ -50,6 +50,9 @@ shared fixtures via the relative path `../testdata`.
   back only when the content changes, preserving file mode) and returning the
   changed paths in walk order.
 
+The Go CLI surface is the `align` subcommand of `gomd`, which exposes the same
+stdin/stdout and in-place path behavior as the other tools.
+
 ## Implementation notes (`align.go`)
 
 **Line handling.** Input is split into logical lines while retaining each line's
@@ -59,20 +62,20 @@ line endings and trailing-newline state are preserved exactly.
 
 **Deterministic width.** A single `&runewidth.Condition{EastAsianWidth: false}`
 is used via `StringWidth`, so ambiguous-width runes are narrow regardless of the
-`LANG` environment while CJK and emoji stay width 2. Because `\|` is kept literal
-in cell content, `StringWidth` counts the backslash + pipe as 2 with no special
-case.
+`LANG` environment while CJK and emoji stay width 2. Because `\|` is kept
+literal in cell content, `StringWidth` counts the backslash + pipe as 2 with no
+special case.
 
 **Main loop.** Walks logical lines tracking code-fence state. Opening fences are
-detected from a leading run of at least three backticks or tildes and may include
-an info string (a backtick fence's info string may not contain a backtick);
-closing fences must use the same marker, be at least as long as the opener, and
-contain only marker characters after trimming. Fences indented four or more
-columns are treated as indented-code content and ignored. Lines inside a fence
-pass through verbatim. Outside a fence, a table starts where line *i* is a
+detected from a leading run of at least three backticks or tildes and may
+include an info string (a backtick fence's info string may not contain a
+backtick); closing fences must use the same marker, be at least as long as the
+opener, and contain only marker characters after trimming. Fences indented four
+or more columns are treated as indented-code content and ignored. Lines inside a
+fence pass through verbatim. Outside a fence, a table starts where line *i* is a
 pipe row and line *i+1* is a valid separator row (every cell matches
-`^:?-+:?$`). The header, separator, and consecutive body pipe rows are collected,
-formatted, and emitted; everything else passes through unchanged.
+`^:?-+:?$`). The header, separator, and consecutive body pipe rows are
+collected, formatted, and emitted; everything else passes through unchanged.
 
 **Cell parsing.** Strip one leading and one trailing `|`, split the remainder on
 **unescaped** `|`, and trim spaces around each cell. Byte iteration is safe
@@ -80,9 +83,10 @@ because `|` and `\` are ASCII and never occur inside a multibyte UTF-8 sequence.
 
 **Column model.** `numCols = max(header, separator, body)` cells; shorter rows
 are padded with empty cells (covers ragged rows without dropping data). Per
-column, alignment is derived from the separator cell — `Default`/`Left`/`Center`/
-`Right`, where Default and Left differ only in separator rendering. Width =
-`max(3, max display width over header + body cells)` (separator excluded).
+column, alignment is derived from the separator cell —
+`Default`/`Left`/`Center`/ `Right`, where Default and Left differ only in
+separator rendering. Width = `max(3, max display width over header + body
+cells)` (separator excluded).
 
 **Rendering.** Each row becomes `| ` + cells joined by ` | ` + ` |`, each cell
 padded to its column width by alignment (Default/Left right-pad, Right left-pad,
