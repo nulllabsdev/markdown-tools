@@ -8,8 +8,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ## [Unreleased]
 
 ### Added
-- Version reporting via `gomd -v` and `rustmd -v`.
 - Release process based on annotated git tags.
+
+### Changed
+- Successful `gomd` and `rustmd` commands now prepend a `build ...` line before
+  normal stdout and keep a trailing blank line.
+- `gomd -v` and `rustmd -v` now print that same `build ...` line and exit.
 
 ## [0.1.0] - 2026-06-16
 
