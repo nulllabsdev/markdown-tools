@@ -3,8 +3,8 @@
 ## Context
 
 `README.md` specifies a tool that aligns the columns of GitHub-style pipe tables
-in markdown so they read cleanly as raw text. This document records the design of
-the **Rust** implementation (crate `markdown_tools`, under `/rust`). It is a
+in markdown so they read cleanly as raw text. This document records the design
+of the **Rust** implementation (crate `markdown_tools`, under `/rust`). It is a
 faithful port of the Go `mdtable` package (`go/align.go`) — the algorithm is
 identical, only the language idioms differ — and is verified against the same
 shared fixtures in `testdata/`, guaranteeing byte-for-byte parity with Go.
@@ -64,10 +64,10 @@ same stdin/stdout and in-place path behavior as the other tools.
 
 **Deterministic width.** Uses `unicode_width::UnicodeWidthStr::width` (ambiguous
 = narrow), matching Go's `runewidth.Condition{EastAsianWidth: false}`. CJK and
-`🍎` are width 2, combining marks width 0. Because `\|` is kept literal, `.width()`
-counts the backslash + pipe as 2 with no special case. Parity risk is contained:
-any disagreement between `unicode-width` and `go-runewidth` would fail a fixture
-loudly, and the fixtures use only widely-agreed characters.
+`🍎` are width 2, combining marks width 0. Because `\|` is kept literal,
+`.width()` counts the backslash + pipe as 2 with no special case. Parity risk is
+contained: any disagreement between `unicode-width` and `go-runewidth` would
+fail a fixture loudly, and the fixtures use only widely-agreed characters.
 
 **Line handling.** Input is split into logical lines while retaining each line's
 original terminator (`\n`, `\r\n`, or none for the final unterminated line).
@@ -75,13 +75,13 @@ Formatted output reuses the original terminator for each emitted line, so mixed
 line endings and trailing-newline state are preserved exactly.
 
 **Main loop.** Walks logical lines tracking code-fence state.
-`opening_fence_token` detects a leading run of at least three backticks or tildes
-and allows an info string (a backtick fence's info string may not contain a
-backtick); `is_closing_fence` requires the same marker, at least the opener's
+`opening_fence_token` detects a leading run of at least three backticks or
+tildes and allows an info string (a backtick fence's info string may not contain
+a backtick); `is_closing_fence` requires the same marker, at least the opener's
 length, and only marker characters after trimming. Fences indented four or more
 columns are treated as indented-code content and ignored. Inside a fence, lines
-pass through verbatim. Outside a fence, a table starts where line *i* is a
-pipe row and line *i+1* is a valid separator row; the header, separator, and
+pass through verbatim. Outside a fence, a table starts where line *i* is a pipe
+row and line *i+1* is a valid separator row; the header, separator, and
 following pipe rows are collected, formatted, and emitted.
 
 **Cell parsing (`split_cells`).** Strips one leading + one trailing `|` (ASCII,
@@ -95,10 +95,10 @@ rows padded with empty cells. Alignment per column derives from the separator
 cell — `enum Align { Default, Left, Center, Right }`, where Default and Left
 differ only in separator rendering. Width = `max(3, max .width() over
 header+body cells)`. Each row becomes `format!("| {} |", fields.join(" | "))`,
-each cell padded with `" ".repeat(n)` by alignment (Default/Left right-pad, Right
-left-pad, Center with the extra space on the right). The separator renders per
-column as `-`×w, `:`+`-`×(w-1), `-`×(w-1)+`:`, or `:`+`-`×(w-2)+`:`; the minimum
-width of 3 keeps every form valid.
+each cell padded with `" ".repeat(n)` by alignment (Default/Left right-pad,
+Right left-pad, Center with the extra space on the right). The separator renders
+per column as `-`×w, `:`+`-`×(w-1), `-`×(w-1)+`:`, or `:`+`-`×(w-2)+`:`; the
+minimum width of 3 keeps every form valid.
 
 ## Verification
 

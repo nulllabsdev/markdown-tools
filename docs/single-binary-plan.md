@@ -5,11 +5,11 @@
 Replace the six per-tool binaries (`go-align`, `go-wrap`, `go-align-graph` and
 their Rust counterparts) with **one binary per language** — `gomd` (Go) and
 `rustmd` (Rust) — that selects a feature via subcommands. Alongside, restructure
-the Rust crate so **every feature is its own module** and `lib.rs` is just module
-wiring plus shared helpers.
+the Rust crate so **every feature is its own module** and `lib.rs` is just
+module wiring plus shared helpers.
 
-This document is a planning artifact only. It does not add implementation, tests,
-Makefile targets, or README changes.
+This document is a planning artifact only. It does not add implementation,
+tests, Makefile targets, or README changes.
 
 ## CLI design
 

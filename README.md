@@ -137,9 +137,9 @@ written; only the one below it is formatted.
 ## Wrap markdown prose
 
 Reflows prose paragraphs so they fit within a display width (default 80 columns,
-`-n N` to override), making raw markdown comfortable to read and review. Wrapping
-is greedy and never splits a word, so long tokens such as URLs keep their own
-line.
+`-n N` to override), making raw markdown comfortable to read and review.
+Wrapping is greedy and never splits a word, so long tokens such as URLs keep
+their own line.
 
 ### Behaviour
 
@@ -179,8 +179,8 @@ docs/guide.md
 
 ## Align ASCII graphs
 
-Re-renders ASCII flowcharts inside fenced ` ```text ` code blocks to a canonical,
-centered form so they read cleanly in raw markdown.
+Re-renders ASCII flowcharts inside fenced ` ```text ` code blocks to a
+canonical, centered form so they read cleanly in raw markdown.
 
 ### Behaviour
 
