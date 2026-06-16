@@ -207,11 +207,9 @@ Version output:
 
 ```
 $ bin/gomd -v
-v0.1.0
 build v0.1.0-3-gabc1234
 
 $ bin/rustmd -v
-v0.1.0
 build v0.1.0-3-gabc1234
 ```
 
@@ -230,23 +228,27 @@ Interface:
   recursively for `*.md` files; a file is rewritten only if its content changes.
   The full path of every file that changed is printed to stdout, one per line.
 - `wrap` and `all` accept `-n N` to set the wrap width (default 80).
-- `-v` prints the current semantic version on the first line; non-tag builds
-  additionally print the git-derived build identifier on the second line.
+- Every successful command prints `build <identifier>` first, then the normal
+  content or changed-path output, and ends with an empty line.
+- `-v` prints that same `build <identifier>` line and exits.
 - Missing or unknown subcommands print usage to stderr and exit with code 1.
 - For directory inputs, `all` prints the sorted, deduplicated union of changed
   paths across the three passes.
 
 ```
 $ bin/gomd align docs/
+build v0.1.0-3-gabc1234
 docs/guide.md
 docs/api/reference.md
 
-$ cat table.md | bin/rustmd align      # stdin → stdout, nothing else printed
+$ cat table.md | bin/rustmd align      # stdin → stdout after the build header
 
 $ bin/gomd wrap -n 100 docs/           # wrap prose to 100 columns in place
+build v0.1.0-3-gabc1234
 docs/guide.md
 
 $ bin/rustmd all -n 100 docs/          # align tables, wrap prose, align graphs
+build v0.1.0-3-gabc1234
 docs/api/reference.md
 docs/guide.md
 ```
@@ -271,7 +273,9 @@ byte-for-byte.
 
 - Release versions are annotated git tags in the form `vX.Y.Z` or
   `vX.Y.Z-prerelease`.
-- Non-tag builds report `git describe --tags --dirty --always --match 'v*'`.
+- The printed identifier is always `build <value>`.
+- Tagged release builds print `build vX.Y.Z`.
+- Non-tag builds print `build <git describe --tags --dirty --always --match 'v*'>`.
 - `rust/Cargo.toml` mirrors the tagged version without the leading `v`.
 - `CHANGELOG.md` is manually curated and keeps an `Unreleased` section at the
   top.
