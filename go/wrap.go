@@ -31,10 +31,18 @@ func WrapString(s string, width int) string {
 	var fenceMarker byte
 	var fenceLen int
 	inFrontMatter := false
+	inListContinuation := false
 
 	for i := 0; i < len(lines); i++ {
 		line := lines[i]
 		trimmed := strings.TrimSpace(line.text)
+
+		if trimmed == "" {
+			flush()
+			out = append(out, line)
+			inListContinuation = false
+			continue
+		}
 
 		// YAML front matter: a leading `---` on the very first line opens a block
 		// that passes through verbatim until its closing `---`/`...`.
@@ -79,14 +87,24 @@ func WrapString(s string, width int) string {
 			out = append(out, para...)
 			para = para[:0]
 			out = append(out, line)
+			inListContinuation = false
 			continue
 		}
 
+		if isListItem(line.text) {
+			flush()
+			out = append(out, line)
+			inListContinuation = true
+			continue
+		}
+		if inListContinuation && isIndentedListContinuation(line.text) {
+			flush()
+			out = append(out, line)
+			continue
+		}
+		inListContinuation = false
+
 		if isProse(line.text) {
-			if len(para) == 0 && i > 0 && isListItem(lines[i-1].text) {
-				out = append(out, line)
-				continue
-			}
 			para = append(para, line)
 			continue
 		}
@@ -276,6 +294,10 @@ func isProse(line string) bool {
 		return false
 	}
 	return true
+}
+
+func isIndentedListContinuation(line string) bool {
+	return len(line) > 0 && line[0] == ' ' && isProse(line)
 }
 
 // leadingSpaces returns the count of leading ASCII spaces, capped at the 4 that

@@ -29,9 +29,17 @@ pub fn wrap_str(input: &str, width: usize) -> String {
     let mut fence_marker = 0u8;
     let mut fence_len = 0usize;
     let mut in_front_matter = false;
+    let mut in_list_continuation = false;
 
     for (i, line) in lines.iter().enumerate() {
         let trimmed = line.text.trim();
+
+        if trimmed.is_empty() {
+            flush(&mut out, &mut para, width);
+            out.push((Cow::Borrowed(line.text), line.eol));
+            in_list_continuation = false;
+            continue;
+        }
 
         // YAML front matter: a leading `---` on the very first line opens a block
         // that passes through verbatim until its closing `---`/`...`.
@@ -80,14 +88,24 @@ pub fn wrap_str(input: &str, width: usize) -> String {
             }
             para.clear();
             out.push((Cow::Borrowed(line.text), line.eol));
+            in_list_continuation = false;
             continue;
         }
 
+        if is_list_item(line.text) {
+            flush(&mut out, &mut para, width);
+            out.push((Cow::Borrowed(line.text), line.eol));
+            in_list_continuation = true;
+            continue;
+        }
+        if in_list_continuation && is_indented_list_continuation(line.text) {
+            flush(&mut out, &mut para, width);
+            out.push((Cow::Borrowed(line.text), line.eol));
+            continue;
+        }
+        in_list_continuation = false;
+
         if is_prose(line.text) {
-            if para.is_empty() && i > 0 && is_list_item(lines[i - 1].text) {
-                out.push((Cow::Borrowed(line.text), line.eol));
-                continue;
-            }
             para.push(*line);
             continue;
         }
@@ -297,6 +315,10 @@ fn is_prose(line: &str) -> bool {
         || is_thematic_break(line)
         || is_html_block_start(line)
         || is_pipe_row(line))
+}
+
+fn is_indented_list_continuation(line: &str) -> bool {
+    line.starts_with(' ') && is_prose(line)
 }
 
 /// Count of leading ASCII spaces, capped at the 4 that matter for CommonMark.

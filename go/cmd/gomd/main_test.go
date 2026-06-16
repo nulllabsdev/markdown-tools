@@ -92,3 +92,40 @@ func TestRunAllDirectoryReportsSortedUniquePaths(t *testing.T) {
 		t.Fatalf("stdout = %q, want %q", got, want)
 	}
 }
+
+func TestRunWrapPreservesTrailingMarkdownLink(t *testing.T) {
+	origBuild := versionBuild
+	versionBuild = "v1.2.3-4-gabc1234"
+	t.Cleanup(func() { versionBuild = origBuild })
+
+	input := "and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n"
+	var out, err bytes.Buffer
+	code := run([]string{"wrap", "-n", "40"}, bytes.NewBufferString(input), &out, &err)
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, err.String())
+	}
+	want := "build v1.2.3-4-gabc1234\nand this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n\n"
+	if got := out.String(); got != want {
+		t.Fatalf("stdout mismatch\n--- got ---\n%q\n--- want ---\n%q", got, want)
+	}
+}
+
+func TestRunWrapPreservesListContinuationIndent(t *testing.T) {
+	origBuild := versionBuild
+	versionBuild = "v1.2.3-4-gabc1234"
+	t.Cleanup(func() { versionBuild = origBuild })
+
+	input := "- `FormatDirectory(root string) ([]string, error)` — `filepath.WalkDir` over\n" +
+		"  `root`, formatting every `*.md` file in place (read → `FormatString` → write\n" +
+		"  back only when the content changes, preserving file mode) and returning the\n" +
+		"  changed paths in walk order.\n"
+	var out, err bytes.Buffer
+	code := run([]string{"wrap", "-n", "80"}, bytes.NewBufferString(input), &out, &err)
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %q", code, err.String())
+	}
+	want := "build v1.2.3-4-gabc1234\n" + input + "\n"
+	if got := out.String(); got != want {
+		t.Fatalf("stdout mismatch\n--- got ---\n%q\n--- want ---\n%q", got, want)
+	}
+}

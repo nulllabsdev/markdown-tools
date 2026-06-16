@@ -270,4 +270,35 @@ mod tests {
         );
         assert_eq!(got, want);
     }
+
+    #[test]
+    fn wrap_preserves_trailing_markdown_link() {
+        let input =
+            "and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n";
+        let mut stdout = Vec::new();
+        run(
+            ["wrap".to_string(), "-n".to_string(), "40".to_string()].into_iter(),
+            &mut Cursor::new(input),
+            &mut stdout,
+        )
+        .unwrap();
+        let got = String::from_utf8(stdout).unwrap();
+        let want = format!("build {VERSION_BUILD}\n{input}\n");
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn wrap_preserves_list_continuation_indent() {
+        let input = "- `FormatDirectory(root string) ([]string, error)` — `filepath.WalkDir` over\n  `root`, formatting every `*.md` file in place (read → `FormatString` → write\n  back only when the content changes, preserving file mode) and returning the\n  changed paths in walk order.\n";
+        let mut stdout = Vec::new();
+        run(
+            ["wrap".to_string(), "-n".to_string(), "80".to_string()].into_iter(),
+            &mut Cursor::new(input),
+            &mut stdout,
+        )
+        .unwrap();
+        let got = String::from_utf8(stdout).unwrap();
+        let want = format!("build {VERSION_BUILD}\n{input}\n");
+        assert_eq!(got, want);
+    }
 }
