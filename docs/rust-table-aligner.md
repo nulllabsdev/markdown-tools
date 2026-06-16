@@ -33,8 +33,13 @@ See `docs/go-table-aligner.md` for the sibling Go design.
 /rust
   Cargo.toml          name = "markdown_tools", edition = "2021"
   Cargo.lock
-  src/lib.rs          public API + core formatter
-  src/bin/rust-align  stdin/stdout and in-place CLI wrapper
+  build.rs            build-time version injection for `rustmd`
+  src/lib.rs          module wiring + public re-exports
+  src/common.rs       shared line handling and markdown helpers
+  src/table.rs        table aligner public API + core formatter
+  src/wrap.rs         prose wrapper implementation
+  src/align_graph.rs  ASCII graph aligner implementation
+  src/bin/rustmd.rs   single CLI wrapper (`align`, `wrap`, `graph`, `all`)
   tests/fixtures.rs   integration tests over ../testdata
 ```
 
@@ -52,7 +57,10 @@ recursion — no `walkdir` dependency.
   on an existing file keeps its permissions) and returning the changed paths in
   walk order.
 
-## Implementation notes (`src/lib.rs`) — mirrors `go/align.go`
+The Rust CLI surface is the `align` subcommand of `rustmd`, which exposes the
+same stdin/stdout and in-place path behavior as the other tools.
+
+## Implementation notes (`src/table.rs`) — mirrors `go/align.go`
 
 **Deterministic width.** Uses `unicode_width::UnicodeWidthStr::width` (ambiguous
 = narrow), matching Go's `runewidth.Condition{EastAsianWidth: false}`. CJK and

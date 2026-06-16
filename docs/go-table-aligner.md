@@ -35,7 +35,7 @@ the same fixtures, guaranteeing byte-for-byte parity between the two.
   go.sum
   align.go        package mdtable — public API + core formatter
   align_test.go   fixture-driven + idempotency + FormatDirectory tests
-  cmd/go-align    stdin/stdout and in-place CLI wrapper
+  cmd/gomd        single CLI wrapper (`align`, `wrap`, `graph`, `all`)
 ```
 
 Dependency: `github.com/mattn/go-runewidth` for display width. Tests read the
@@ -49,6 +49,9 @@ shared fixtures via the relative path `../testdata`.
   `root`, formatting every `*.md` file in place (read → `FormatString` → write
   back only when the content changes, preserving file mode) and returning the
   changed paths in walk order.
+
+The Go CLI surface is the `align` subcommand of `gomd`, which exposes the same
+stdin/stdout and in-place path behavior as the other tools.
 
 ## Implementation notes (`align.go`)
 
