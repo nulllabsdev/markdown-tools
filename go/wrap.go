@@ -83,6 +83,10 @@ func WrapString(s string, width int) string {
 		}
 
 		if isProse(line.text) {
+			if len(para) == 0 && i > 0 && isListItem(lines[i-1].text) {
+				out = append(out, line)
+				continue
+			}
 			para = append(para, line)
 			continue
 		}
@@ -140,10 +144,7 @@ func WrapDirectory(root string, width int) ([]string, error) {
 // reuse the paragraph's first source eol; the final line keeps the paragraph's
 // last source eol so trailing-newline and CRLF state survive.
 func wrapParagraph(para []logicalLine, width int) []logicalLine {
-	var words []string
-	for _, line := range para {
-		words = append(words, strings.Fields(line.text)...)
-	}
+	words := paragraphTokens(para)
 	if len(words) == 0 {
 		return para
 	}
@@ -157,9 +158,9 @@ func wrapParagraph(para []logicalLine, width int) []logicalLine {
 	} else {
 		cur := words[0]
 		curW := dispWidth(cur)
-		for _, w := range words[1:] {
+		for i, w := range words[1:] {
 			ww := dispWidth(w)
-			if curW+1+ww <= width {
+			if curW+1+ww <= width || (i == len(words[1:])-1 && isTrailingMarkdownLinkToken(w)) {
 				cur += " " + w
 				curW += 1 + ww
 			} else {
@@ -179,6 +180,84 @@ func wrapParagraph(para []logicalLine, width int) []logicalLine {
 		wrapped[i] = logicalLine{text: text, eol: eol}
 	}
 	return wrapped
+}
+
+func paragraphTokens(para []logicalLine) []string {
+	var b strings.Builder
+	for i, line := range para {
+		if i > 0 {
+			b.WriteByte(' ')
+		}
+		b.WriteString(strings.TrimSpace(line.text))
+	}
+	return tokenizeParagraph(b.String())
+}
+
+func tokenizeParagraph(s string) []string {
+	var tokens []string
+	for i := 0; i < len(s); {
+		for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
+			i++
+		}
+		if i >= len(s) {
+			break
+		}
+		start := i
+		for i < len(s) && s[i] != ' ' && s[i] != '\t' {
+			if s[i] == '[' {
+				if end, ok := markdownLinkEnd(s, i); ok {
+					i = end
+					continue
+				}
+			}
+			i++
+		}
+		tokens = append(tokens, s[start:i])
+	}
+	return tokens
+}
+
+func markdownLinkEnd(s string, start int) (int, bool) {
+	i := start + 1
+	for i < len(s) && s[i] != ']' {
+		i++
+	}
+	if i >= len(s)-1 || s[i+1] != '(' {
+		return 0, false
+	}
+	i += 2
+	depth := 1
+	for i < len(s) {
+		switch s[i] {
+		case '(':
+			depth++
+		case ')':
+			depth--
+			if depth == 0 {
+				return i + 1, true
+			}
+		}
+		i++
+	}
+	return 0, false
+}
+
+func isTrailingMarkdownLinkToken(token string) bool {
+	if !strings.HasPrefix(token, "[") {
+		return false
+	}
+	end, ok := markdownLinkEnd(token, 0)
+	if !ok {
+		return false
+	}
+	for i := end; i < len(token); i++ {
+		switch token[i] {
+		case '.', ',', ';', ':', '!', '?':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // isProse reports whether a line is ordinary paragraph text — i.e. it has

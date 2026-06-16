@@ -84,6 +84,10 @@ pub fn wrap_str(input: &str, width: usize) -> String {
         }
 
         if is_prose(line.text) {
+            if para.is_empty() && i > 0 && is_list_item(lines[i - 1].text) {
+                out.push((Cow::Borrowed(line.text), line.eol));
+                continue;
+            }
             para.push(*line);
             continue;
         }
@@ -168,10 +172,7 @@ fn flush<'a>(
 /// paragraph's first source eol; the final line keeps the last source eol so
 /// trailing-newline and CRLF state survive.
 fn wrap_paragraph<'a>(para: &[LogicalLine<'a>], width: usize) -> Vec<(String, &'a str)> {
-    let mut words: Vec<&str> = Vec::new();
-    for line in para {
-        words.extend(line.text.split_whitespace());
-    }
+    let words = paragraph_tokens(para);
     if words.is_empty() {
         return para.iter().map(|l| (l.text.to_string(), l.eol)).collect();
     }
@@ -183,17 +184,19 @@ fn wrap_paragraph<'a>(para: &[LogicalLine<'a>], width: usize) -> Vec<(String, &'
     if width == 0 {
         texts.push(words.join(" "));
     } else {
-        let mut cur = String::from(words[0]);
-        let mut cur_w = disp_width(words[0]);
-        for w in &words[1..] {
+        let mut cur = words[0].clone();
+        let mut cur_w = disp_width(&words[0]);
+        let trailing = &words[1..];
+        for (i, w) in trailing.iter().enumerate() {
             let ww = disp_width(w);
-            if cur_w + 1 + ww <= width {
+            if cur_w + 1 + ww <= width || (i + 1 == trailing.len() && is_trailing_markdown_link(w))
+            {
                 cur.push(' ');
                 cur.push_str(w);
                 cur_w += 1 + ww;
             } else {
                 texts.push(std::mem::take(&mut cur));
-                cur = String::from(*w);
+                cur = w.clone();
                 cur_w = ww;
             }
         }
@@ -206,6 +209,79 @@ fn wrap_paragraph<'a>(para: &[LogicalLine<'a>], width: usize) -> Vec<(String, &'
         .enumerate()
         .map(|(i, t)| (t, if i == last { last_eol } else { first_eol }))
         .collect()
+}
+
+fn paragraph_tokens(para: &[LogicalLine<'_>]) -> Vec<String> {
+    let joined = para
+        .iter()
+        .map(|line| line.text.trim())
+        .collect::<Vec<_>>()
+        .join(" ");
+    tokenize_paragraph(&joined)
+}
+
+fn tokenize_paragraph(s: &str) -> Vec<String> {
+    let bytes = s.as_bytes();
+    let mut tokens = Vec::new();
+    let mut i = 0;
+    while i < bytes.len() {
+        while i < bytes.len() && matches!(bytes[i], b' ' | b'\t') {
+            i += 1;
+        }
+        if i >= bytes.len() {
+            break;
+        }
+        let start = i;
+        while i < bytes.len() && !matches!(bytes[i], b' ' | b'\t') {
+            if bytes[i] == b'[' {
+                if let Some(end) = markdown_link_end(bytes, i) {
+                    i = end;
+                    continue;
+                }
+            }
+            i += 1;
+        }
+        tokens.push(s[start..i].to_string());
+    }
+    tokens
+}
+
+fn markdown_link_end(bytes: &[u8], start: usize) -> Option<usize> {
+    let mut i = start + 1;
+    while i < bytes.len() && bytes[i] != b']' {
+        i += 1;
+    }
+    if i + 1 >= bytes.len() || bytes[i + 1] != b'(' {
+        return None;
+    }
+    i += 2;
+    let mut depth = 1usize;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(i + 1);
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    None
+}
+
+fn is_trailing_markdown_link(token: &str) -> bool {
+    if !token.starts_with('[') {
+        return false;
+    }
+    let Some(end) = markdown_link_end(token.as_bytes(), 0) else {
+        return false;
+    };
+    token[end..]
+        .bytes()
+        .all(|b| matches!(b, b'.' | b',' | b';' | b':' | b'!' | b'?'))
 }
 
 /// Reports whether a line is ordinary paragraph text — it has content and is none

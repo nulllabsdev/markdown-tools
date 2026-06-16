@@ -59,7 +59,7 @@ Centered two-box row:
 ```text
        +------------------------------+  +------------------------------+
        |       Discover sitemap       |  |       Discover catalog       |
-       |         files and URLs       |  |         leaves and URLs      |
+       |        files and URLs        |  |       leaves and URLs        |
        +------------------------------+  +------------------------------+
 ```
 

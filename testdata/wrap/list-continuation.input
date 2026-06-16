@@ -1,0 +1,2 @@
+ - Successful `gomd` and `rustmd` commands now prepend a `build ...` line before
+   normal stdout and keep a trailing blank line.

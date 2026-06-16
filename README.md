@@ -157,6 +157,18 @@ line.
 Known limitations: prose is normalized to column 0 and trailing whitespace is
 trimmed; two-space "hard breaks" inside a paragraph are not preserved.
 
+Examples:
+
+```md
+and this project follows
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+```
+
+```md
+ - Successful `gomd` and `rustmd` commands now prepend a `build ...` line before
+   normal stdout and keep a trailing blank line.
+```
+
 ```
 $ bin/gomd wrap README.md
 README.md
