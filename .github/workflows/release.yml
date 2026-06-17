@@ -1,0 +1,252 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux_amd64
+            runner: ubuntu-24.04
+          - target: linux_arm64
+            runner: ubuntu-24.04-arm
+          - target: darwin_amd64
+            runner: macos-15-intel
+          - target: darwin_arm64
+            runner: macos-15
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache-dependency-path: go/go.sum
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Validate tag and Cargo version
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          cargo_version=$(sed -n 's/^version = "\([^"]*\)"/\1/p' rust/Cargo.toml | head -n 1)
+
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release tag: $tag" >&2
+            exit 1
+          fi
+
+          if [[ "$cargo_version" != "$version" ]]; then
+            echo "Tag is $tag but rust/Cargo.toml is $cargo_version" >&2
+            exit 1
+          fi
+
+      - name: Build both binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+
+          mkdir -p dist
+
+          (
+            cd go
+            CGO_ENABLED=0 go build \
+              -trimpath \
+              -ldflags "-s -w -X main.versionBase=v${version} -X main.versionBuild=${tag}" \
+              -o ../dist/gomd \
+              ./cmd/gomd
+          )
+
+          (
+            cd rust
+            cargo build --locked --release --bin rustmd
+          )
+          cp rust/target/release/rustmd dist/rustmd
+
+      - name: Smoke-test version output
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="build ${GITHUB_REF_NAME}"
+          test "$(./dist/gomd -v)" = "$expected"
+          test "$(./dist/rustmd -v)" = "$expected"
+
+      - name: Package archive and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="markdown-tools_${GITHUB_REF_NAME}_${{ matrix.target }}.tar.gz"
+
+          mkdir -p package release
+          cp dist/gomd dist/rustmd LICENSE README.md package/
+          tar -C package -czf "release/${archive}" .
+
+          python3 - "release/${archive}" <<'PY'
+          import hashlib
+          import pathlib
+          import sys
+
+          path = pathlib.Path(sys.argv[1])
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          checksum_path = path.with_name(path.name + ".sha256")
+          checksum_path.write_text(f"{digest}  {path.name}\n", encoding="utf-8")
+          PY
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.target }}
+          path: release/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish release and update Homebrew tap
+    needs: build
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all platform archives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release
+          merge-multiple: true
+
+      - name: Create or refresh the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+
+          prerelease=()
+          if [[ "${tag#v}" == *-* ]]; then
+            prerelease+=(--prerelease)
+          fi
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" release/* --clobber
+          else
+            gh release create "$tag" release/* \
+              --verify-tag \
+              --title "$tag" \
+              --generate-notes \
+              "${prerelease[@]}"
+          fi
+
+      - name: Check out the Homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: nulllabsdev/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Generate the Homebrew formula
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          release_base="https://github.com/nulllabsdev/markdown-tools/releases/download/${tag}"
+
+          checksum() {
+            awk '{print $1}' "release/$1.sha256"
+          }
+
+          linux_amd64="markdown-tools_${tag}_linux_amd64.tar.gz"
+          linux_arm64="markdown-tools_${tag}_linux_arm64.tar.gz"
+          darwin_amd64="markdown-tools_${tag}_darwin_amd64.tar.gz"
+          darwin_arm64="markdown-tools_${tag}_darwin_arm64.tar.gz"
+
+          mkdir -p homebrew-tap/Formula
+
+          cat > homebrew-tap/Formula/markdown-tools.rb <<RUBY
+          class MarkdownTools < Formula
+            desc "Markdown format-management tools implemented in Go and Rust"
+            homepage "https://github.com/nulllabsdev/markdown-tools"
+            version "${version}"
+            license "MIT"
+
+            on_macos do
+              on_arm do
+                url "${release_base}/${darwin_arm64}"
+                sha256 "$(checksum "${darwin_arm64}")"
+              end
+
+              on_intel do
+                url "${release_base}/${darwin_amd64}"
+                sha256 "$(checksum "${darwin_amd64}")"
+              end
+            end
+
+            on_linux do
+              on_arm do
+                url "${release_base}/${linux_arm64}"
+                sha256 "$(checksum "${linux_arm64}")"
+              end
+
+              on_intel do
+                url "${release_base}/${linux_amd64}"
+                sha256 "$(checksum "${linux_amd64}")"
+              end
+            end
+
+            def install
+              bin.install "gomd", "rustmd"
+            end
+
+            test do
+              assert_match "build v#{version}", shell_output("#{bin}/gomd -v")
+              assert_match "build v#{version}", shell_output("#{bin}/rustmd -v")
+            end
+          end
+          RUBY
+
+          ruby -c homebrew-tap/Formula/markdown-tools.rb
+
+      - name: Commit and push the formula update
+        working-directory: homebrew-tap
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/markdown-tools.rb
+
+          if git diff --cached --quiet; then
+            echo "Formula is already current."
+            exit 0
+          fi
+
+          git commit -m "markdown-tools ${GITHUB_REF_NAME}"
+          git push
