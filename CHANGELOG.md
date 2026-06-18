@@ -7,6 +7,33 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-06-18
+
+Maintenance release that exercises the full release pipeline end to end
+(tag → build → publish). No changes to any tool or library behaviour.
+
+### Fixed
+
+- **Stale Rust lockfile** — `rust/Cargo.lock` now records the crate version, so
+  the release workflow's `cargo build --locked` no longer aborts on a lockfile
+  that lags behind `Cargo.toml`.
+
+## [0.2.1] - 2026-06-18
+
+### Fixed
+
+- Bumped `rust/Cargo.toml` to the release version; it had been left at the
+  previous version when 0.2.0 was tagged.
+
+## [0.2.0] - 2026-06-17
+
+### Added
+
+- **Prebuilt binaries** — a GitHub Actions release workflow
+  (`.github/workflows/release.yml`) builds and publishes `gomd` and `rustmd`
+  binaries whenever an annotated `v*` tag is pushed.
+- **`RELEASING.md`** — documents how to cut a release.
+
 ## [0.1.0] - 2026-06-16
 
 Initial release: three markdown formatting tools, implemented in both Go and
@@ -52,5 +79,8 @@ Rust and verified to produce byte-identical output.
 
 ## Links
 
+- [Unreleased changes](https://github.com/nulllabsdev/markdown-tools/compare/v0.2.2...HEAD)
+- [0.2.2](https://github.com/nulllabsdev/markdown-tools/compare/v0.2.1...v0.2.2)
+- [0.2.1](https://github.com/nulllabsdev/markdown-tools/compare/v0.2.0...v0.2.1)
+- [0.2.0](https://github.com/nulllabsdev/markdown-tools/compare/v0.1.0...v0.2.0)
 - [0.1.0 release](https://github.com/nulllabsdev/markdown-tools/releases/tag/v0.1.0)
-- [Unreleased changes](https://github.com/nulllabsdev/markdown-tools/compare/v0.1.0...HEAD)
